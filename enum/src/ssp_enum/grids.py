@@ -8,20 +8,31 @@ mirror, and z-flip) have the same induced grid. SCC criterion 2 says: a
 candidate skeleton passes only if its induced grid is one of a
 predefined set of "allowed grids" for that dimension (Appendix Fig. S3).
 
-Allowed grid counts from Appendix:
+Allowed grid counts from Fig. S3 (lattice level, after deriving the
+underlying lattice arrangement from the paper's explicit-edge diagrams):
 
-  S3: 2 grids — 3-collinear and equilateral triangle.
-  S4: 3 grids — Fig. S3(a, b, c). (a)=K4 with all-pair interactions;
-      (b)=K4 minus one edge; (c)=4 nodes with only peripheral edges.
-  S5: 5 grids — Fig. S3(d, e, f, g, h). The Appendix says Grid 5 (S3-h)
-      has the same handedness specification as Grid 4 (S3-g); g and h
-      share the same *unlabeled adjacency graph* (i.e., same set of
-      edges up to vertex relabeling) but differ in their visual lattice
-      embedding — a mirror-image pair that the lattice-symmetry group
-      can't unify. Under the canonical form used here (unlabeled
-      adjacency graph), g and h collapse to one signature, so we
-      observe **4** S5 signatures from oracle data even though paper
-      counts 5 grids.
+  S3: 2 grids — 3-collinear (P3) and equilateral triangle (K3).
+  S4: 3 grids — Fig. S3(a) P4 path; (b) triangle (2,3,4) + pendant 1;
+      (c) C4 cycle with one rhombus diagonal also lattice-adjacent.
+  S5: 5 grids — Fig. S3(d) P5; (e) tripod+pendant; (f) C5 cycle;
+      (g)/(h) K1,4 star centered at node 2 (two different leaf
+      labelings that share unlabeled adjacency).
+
+Note: the paper diagrams show *explicit interactions* (the solid lines).
+The underlying lattice arrangement can include additional adjacencies
+that are marked `X` (optional) in the SSP query matrix because the
+specific SSE-type assignment doesn't require them to interact concretely.
+The grids stored here are the **lattice arrangements** — the maximum-edge
+version for each paper grid. A skeleton passes SCC-2 iff its full
+lattice adjacency graph (canonical-form) is in this whitelist.
+
+Earlier extractions of these constants from the oracle treated `X` as
+adjacent (paper §1.1.1: `X` = non-adjacent / optional interaction); the
+"K4" entry that appeared in S4 was a wrong inference — K4 isn't
+realizable on the 2D hex lattice, and the 96 oracle records with that
+profile are actually paper grid (c) lattice (5 edges) with the short
+rhombus diagonal made explicit. The S4 whitelist is now derived directly
+from Fig. S3 + hex-lattice geometry, paper-cited.
 
 Canonical-form: we represent an induced grid by the canonical
 adjacency-graph signature (lex-min frozenset of edges over all N!
@@ -91,12 +102,18 @@ WHITELIST_S3: frozenset[GridSignature] = frozenset({
 })
 
 WHITELIST_S4: frozenset[GridSignature] = frozenset({
-    # Fig. S3(c): 4 nodes with peripheral edges only (3 edges, P4 path).
+    # Fig. S3(a) — P4 path (1—2—3—4). 3 edges.
     ((0, 1), (0, 2), (1, 3)),
-    # Fig. S3(b): K4 minus one edge (5 edges).
+    # Fig. S3(b) — triangle (2,3,4) with pendant 1 attached at 2. 4 edges.
+    # Note: this entry was previously erroneously listed as K4 (6 edges),
+    # which is not realizable on the 2D hex lattice (max in-plane cluster
+    # of 4 mutually-adjacent points doesn't exist).
+    ((0, 1), (0, 2), (0, 3), (1, 2)),
+    # Fig. S3(c) — C4 cycle with the short rhombus diagonal also adjacent.
+    # On the hex lattice, the 4 corners of a unit rhombus include one
+    # diagonal at distance 1 (lattice-adjacent, marked X in the SSP) and
+    # one at distance 2 (non-adjacent). 5 edges total = K4 minus one edge.
     ((0, 1), (0, 2), (0, 3), (1, 2), (1, 3)),
-    # Fig. S3(a): K4 (all 6 pairs adjacent).
-    ((0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)),
 })
 
 WHITELIST_S5: frozenset[GridSignature] = frozenset({

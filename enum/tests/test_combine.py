@@ -154,27 +154,27 @@ def test_enumerate_skeletons_s3_covers_base_shapes():
 
 
 def test_enumerate_skeletons_s4_count():
-    """Phase C1 regression pin: S4 = 14 via combine.
+    """Phase C-S4 regression pin: S4 = 42 via combine (oracle: 41).
 
-    Up from 10 in Phase A/B — rotation-only canonical_key separates
-    mirror-pair skeletons that were previously collapsed. Oracle has
-    41 distinct skel_ids; the gap is now chirality (L/R labeling per
-    skeleton; some skeletons are self-mirror and stay 1, others split
-    into L+R = 2) and z-displacement variants — later Phase C work.
+    Up from 14 once WHITELIST_S4 was corrected per Fig. S3 to include
+    the 4-edge triangle+pendant grid (paper b) and drop the bogus
+    6-edge K4 (not realizable on 2D hex). Combine now nearly matches
+    the oracle's 41 distinct skel_ids; the +1 discrepancy is likely a
+    single mirror-pair that needs RCC dedup, not a structural gap.
     """
-    assert len(enumerate_skeletons(4)) == 14
+    assert len(enumerate_skeletons(4)) == 42
 
 
 def test_enumerate_skeletons_s5_count():
-    """Phase C1 regression pin: S5 = 70 via combine.
+    """Phase C-S4 regression pin: S5 = 72 via combine.
 
-    Up from 41 (Phase B) — rotation-only canonical_key separates more
-    mirror pairs at S5 than at S4. Oracle has 648 distinct skel_ids;
-    the remaining gap is dominated by z-displacement variants the
-    paper allows ('up to three layers') which our enumeration doesn't
-    produce yet (seeds + valid(s) extensions all stay in the z=0 plane).
+    Small bump from 70 because the corrected S4 whitelist lets a few
+    triangle+pendant S4 skeletons feed into S5 via single-node growth.
+    The bulk of the S5 vs oracle gap (648) is still ahead — WHITELIST_S5
+    needs the same Fig. S3-derived correction (currently empirical-X-
+    included and missing several paper grids).
     """
-    assert len(enumerate_skeletons(5)) == 70
+    assert len(enumerate_skeletons(5)) == 72
 
 
 def test_s2_plus_s2_produces_compact_candidates():

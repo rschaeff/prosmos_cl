@@ -167,13 +167,24 @@ so SCC-2 accept/reject is identical to the paper's. The lattice-
 embedding chirality is captured separately by the chirality label
 introduced in `enumerate_s3()`.
 
-**Combine-pairs Phase C1 status (rotation-only canonical_key):**
+**Combine-pairs Phase C status (rotation-only canonical_key + corrected S4 whitelist):**
 
-| Dim | Phase B | Phase C1 | oracle (distinct skel_id) | paper |
-|---:|---:|---:|---:|---:|
-| 3 | 4   | 5   | 11   | 23   |
-| 4 | 10  | 14  | 41   | 221  |
-| 5 | 41  | 70  | 648  | 1239 |
+| Dim | Phase B | Phase C1 | **Phase C-S4** | oracle (distinct skel_id) | paper |
+|---:|---:|---:|---:|---:|---:|
+| 3 | 4   | 5   | 5   | 11   | 23   |
+| 4 | 10  | 14  | **42** | 41   | 221  |
+| 5 | 41  | 70  | 72  | 648  | 1239 |
+
+**S4 is now essentially matched** (42 vs 41; +1 likely an RCC tie-break case).
+The fix: replace the bogus `K4` entry in `WHITELIST_S4` (K4 is not realizable
+on the 2D hex lattice; the oracle records I previously classified as K4 are
+actually paper grid (c) lattice + 1 phantom X-marked edge) with the 4-edge
+triangle+pendant grid corresponding to paper Fig. S3 (b). Now S4 lattice
+whitelist directly mirrors the paper:
+
+  - **(a)** P4 path:               `((0,1),(0,2),(1,3))`         — 3 edges
+  - **(b)** triangle + pendant:    `((0,1),(0,2),(0,3),(1,2))`   — 4 edges
+  - **(c)** C4 + short diagonal:   `((0,1),(0,2),(0,3),(1,2),(1,3))` — 5 edges
 
 Narrowing the canonical-form quotient from 12-hex × z-flip to
 6-rotation only separates mirror pairs the previous canonical
@@ -186,18 +197,22 @@ variants the paper allows ("up to three layers") which our
 enumeration doesn't yet produce — seeds + valid(s) extensions all
 stay in the z=0 plane.
 
-Next (remaining Phase C):
-1. SSE orientation tracking (up/down per node, alternating along
-   the sequence per paper §1.1). Phase C2.
-2. Handedness-based equivalence: two skeletons equivalent iff for
-   every triple of node labels the (p × q) · r handedness sign
-   matches. Phase C3 — requires (1).
+Next:
+1. **Fix WHITELIST_S5 the same way** — derive S5 lattice grids from
+   Fig. S3 (d, e, f, g, h). Paper (d) P5 and (e) tripod+pendant are
+   straightforward; (f) C5 cycle is clear; (g)/(h) K1,4 star is the
+   tricky one — at the explicit-edge level it's a 4-edge star, but
+   2D hex doesn't admit 4 pairwise non-adjacent leaves, so the
+   underlying lattice has 5–7 edges depending on which 4 of vertex 2's
+   6 hex neighbors are chosen as leaves. Likely need multiple lattice
+   variants in WHITELIST_S5 for paper (g)/(h). Phase C-S5.
+2. Investigate the +1 S4 discrepancy (42 vs 41) — probably an RCC
+   tie that produces a duplicate skeleton our canonical_key keeps
+   distinct. May resolve once RCC lands.
 3. RCC tie-breaking on equivalent skeletons (paper Appendix §1.2:
-   pair-wise distance sum, then unique-y count). Phase C4 —
-   requires (2).
-4. Cross-layer / z-displaced extensions: revisit `valid_extension_points`
-   and the seeds to allow placement at z ∈ {-1, +1}. Closes the
-   bulk of the remaining S5 gap. Phase C5.
+   pair-wise distance sum, then unique-y count). Phase C-RCC.
+4. Handedness-based equivalence + SSE orientation tracking (paper
+   §1.1). Needed for full canonical-skeleton dedup matching CG-2012.
 5. SSE-type (H/E) and interaction-type assignment to grow
    skeletons into full SSPs. Post-Phase-C.
 6. ProSMoS-format writer (`prosmos.py`) — depends on (5).
