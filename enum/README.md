@@ -167,24 +167,32 @@ so SCC-2 accept/reject is identical to the paper's. The lattice-
 embedding chirality is captured separately by the chirality label
 introduced in `enumerate_s3()`.
 
-**Combine-pairs Phase C status (rotation-only canonical_key + corrected S4 whitelist):**
+**Combine-pairs Phase C status (rotation-only canonical_key + Fig. S3-derived whitelists):**
 
-| Dim | Phase B | Phase C1 | **Phase C-S4** | oracle (distinct skel_id) | paper |
-|---:|---:|---:|---:|---:|---:|
-| 3 | 4   | 5   | 5   | 11   | 23   |
-| 4 | 10  | 14  | **42** | 41   | 221  |
-| 5 | 41  | 70  | 72  | 648  | 1239 |
+| Dim | Phase B | Phase C1 | Phase C-S4 | **Phase C-S5** | oracle (distinct skel_id) | paper |
+|---:|---:|---:|---:|---:|---:|---:|
+| 3 | 4   | 5   | 5   | 5   | 11   | 23   |
+| 4 | 10  | 14  | 42  | 42  | 41   | 221  |
+| 5 | 41  | 70  | 72  | **198** | 648  | 1239 |
 
-**S4 is now essentially matched** (42 vs 41; +1 likely an RCC tie-break case).
-The fix: replace the bogus `K4` entry in `WHITELIST_S4` (K4 is not realizable
-on the 2D hex lattice; the oracle records I previously classified as K4 are
-actually paper grid (c) lattice + 1 phantom X-marked edge) with the 4-edge
-triangle+pendant grid corresponding to paper Fig. S3 (b). Now S4 lattice
-whitelist directly mirrors the paper:
+**S4 essentially matches (42 vs 41); S5 closes a major gap (72 → 198).**
+WHITELIST_S4 and WHITELIST_S5 are now derived directly from paper Fig. S3
++ hex lattice geometry, replacing the earlier oracle-X-included extractions
+(which incorrectly included K4 / K5 / K5-1e — none of which are realizable
+on the 2D hex lattice).
 
+S4 lattice whitelist:
   - **(a)** P4 path:               `((0,1),(0,2),(1,3))`         — 3 edges
   - **(b)** triangle + pendant:    `((0,1),(0,2),(0,3),(1,2))`   — 4 edges
   - **(c)** C4 + short diagonal:   `((0,1),(0,2),(0,3),(1,2),(1,3))` — 5 edges
+
+S5 lattice whitelist:
+  - **(d)** P5 path:                `((0,1),(0,2),(1,3),(2,4))`           — 4 edges
+  - **(e)** triangle+2pendants:     `((0,1),(0,2),(0,3),(1,2),(1,4))`     — 5 edges
+  - **(g)/(h)** sparse K1,4:        `((0,1),(0,2),(0,3),(0,4),(1,2),(3,4))` — 6 edges
+  - **(f)** / dense K1,4:           `((0,1),(0,2),(0,3),(0,4),(1,2),(1,3),(2,4))` — 7 edges
+
+Combine S5 distribution across the 4 grids: 12 (d) + 98 (e) + 28 (g sparse) + 60 (f/g dense) = 198.
 
 Narrowing the canonical-form quotient from 12-hex × z-flip to
 6-rotation only separates mirror pairs the previous canonical

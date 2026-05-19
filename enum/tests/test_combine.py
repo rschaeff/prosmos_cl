@@ -166,15 +166,25 @@ def test_enumerate_skeletons_s4_count():
 
 
 def test_enumerate_skeletons_s5_count():
-    """Phase C-S4 regression pin: S5 = 72 via combine.
+    """Phase C-S5 regression pin: S5 = 198 via combine (oracle: 648).
 
-    Small bump from 70 because the corrected S4 whitelist lets a few
-    triangle+pendant S4 skeletons feed into S5 via single-node growth.
-    The bulk of the S5 vs oracle gap (648) is still ahead — WHITELIST_S5
-    needs the same Fig. S3-derived correction (currently empirical-X-
-    included and missing several paper grids).
+    Big jump from 72 after deriving WHITELIST_S5 directly from Fig. S3
+    (d-h): added the 5e tripod+2pendants (e) and 6e bowtie / sparse
+    K1,4 (g/h sparse) lattice variants which were previously rejected
+    by SCC-2. Combine now produces skeletons across all 4 paper-
+    derived S5 lattice signatures:
+      4e P5 (d):          12 skeletons
+      5e tripod+2pend (e): 98 skeletons
+      6e K1,4-sparse (g): 28 skeletons
+      7e K1,4-dense (f/g):60 skeletons
+
+    Remaining 3.3x gap to oracle 648 likely comes from chirality
+    variants (L/R) that our rotation-only canonical_key keeps distinct
+    but combine doesn't produce enough of, plus possibly a separate
+    (f) lattice realization the (g/h-shared) signature here doesn't
+    capture.
     """
-    assert len(enumerate_skeletons(5)) == 72
+    assert len(enumerate_skeletons(5)) == 198
 
 
 def test_s2_plus_s2_produces_compact_candidates():

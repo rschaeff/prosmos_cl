@@ -14,9 +14,15 @@ underlying lattice arrangement from the paper's explicit-edge diagrams):
   S3: 2 grids — 3-collinear (P3) and equilateral triangle (K3).
   S4: 3 grids — Fig. S3(a) P4 path; (b) triangle (2,3,4) + pendant 1;
       (c) C4 cycle with one rhombus diagonal also lattice-adjacent.
-  S5: 5 grids — Fig. S3(d) P5; (e) tripod+pendant; (f) C5 cycle;
-      (g)/(h) K1,4 star centered at node 2 (two different leaf
-      labelings that share unlabeled adjacency).
+  S5: 4 unlabeled signatures derived from Fig. S3(d-h):
+      (d) P5 path                                    — 4 edges
+      (e) 1-2-3-4 collinear + 5 in the 2-3 corner    — 5 edges
+          (triangle (2,3,5) with pendants 1, 4)
+      (g)/(h) sparse — center 2 + 4 alt-spaced leaves — 6 edges
+          (K1,4 plus 2 leaf-pair edges arising from hex geometry)
+      (f) / dense (g)(h) — center 2 + 4 consecutive
+          hex-neighbor leaves                          — 7 edges
+          (K1,4 plus 3 leaf-pair edges)
 
 Note: the paper diagrams show *explicit interactions* (the solid lines).
 The underlying lattice arrangement can include additional adjacencies
@@ -117,15 +123,25 @@ WHITELIST_S4: frozenset[GridSignature] = frozenset({
 })
 
 WHITELIST_S5: frozenset[GridSignature] = frozenset({
-    # Sparsest: 4 edges, P5 path.
+    # Fig. S3(d) — P5 path (1—2—3—4—5). 4 edges.
     ((0, 1), (0, 2), (1, 3), (2, 4)),
-    # 7 edges (K5 minus 3): Fig. S3 most likely (f) given handedness density.
+    # Fig. S3(e) — 1—2—3—4 collinear + node 5 placed between 2 and 3
+    # (paper: "two broken lines indicate that at least one of the
+    # interactions is mandatory" — lattice has both 5-2 and 5-3 adjacent;
+    # at most one is X-marked optional in the resulting SSP).
+    # = triangle (2,3,5) + pendants 1 on 2 and 4 on 3.
+    ((0, 1), (0, 2), (0, 3), (1, 2), (1, 4)),
+    # Fig. S3(g)/(h) sparse variant — K1,4 star centered at node 2 with
+    # leaves at 4 hex neighbors of 2 chosen at alternating positions, so
+    # exactly 2 leaf-pair edges arise (e.g., leaves at 0°,60°,180°,240°
+    # giving leaf-leaf edges (1,5) and (3,4) in the original labeling).
+    # 4 center-leaf + 2 leaf-leaf = 6 edges.
+    ((0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (3, 4)),
+    # Fig. S3(f) / dense (g)(h) variant — K1,4 star + 3 leaf-pair edges
+    # (4 consecutive leaves around the center on hex). The (f) image's
+    # two-row layout and the dense K1,4-plus-3 of (g)/(h) collapse to
+    # this canonical structure. 7 edges.
     ((0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (2, 4)),
-    # K5 minus 1 edge (9 edges).
-    ((0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4), (2, 3), (2, 4)),
-    # K5 (all 10 pairs adjacent).
-    ((0, 1), (0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4),
-     (2, 3), (2, 4), (3, 4)),
 })
 
 
