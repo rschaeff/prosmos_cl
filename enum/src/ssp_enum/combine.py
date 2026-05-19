@@ -192,7 +192,12 @@ def canonical_key(skel: Skeleton) -> tuple:
 
     History: Phase A/B used a wider quotient (12 hex symmetries +
     z-flip), which collapsed mirror pairs and undercounted S4 / S5
-    relative to the oracle. Narrowing to rotations-only is Phase C1.
+    relative to the oracle. Narrowing to rotations-only was Phase C1.
+
+    Phase C2 extends the key with the skeleton's `start_up`
+    orientation flag — UP-start and DOWN-start give distinct
+    linker-plane assignments (paper Appendix §1.1) and are
+    therefore distinct SSPs.
     """
     pts = skel.points
 
@@ -209,4 +214,4 @@ def canonical_key(skel: Skeleton) -> tuple:
         candidates.append(key_of(cur))
         cur = tuple(_rotate60(p) for p in cur)
         cur = translate_to_origin(cur)
-    return min(candidates)
+    return (min(candidates), skel.start_up, skel.chirality)

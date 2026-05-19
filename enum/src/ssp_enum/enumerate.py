@@ -189,16 +189,30 @@ def enumerate_skeletons(n: int) -> list[Skeleton]:
         rotation when join orientations clash
     """
     if n == 1:
-        return [_SEED_S1]
+        # S1: single point. Two orientation variants (start_up True/False).
+        return [
+            Skeleton(points=(LatticePoint(0, 0, 0),), start_up=True),
+            Skeleton(points=(LatticePoint(0, 0, 0),), start_up=False),
+        ]
     if n == 2:
-        return [_SEED_S2]
+        # S2: two adjacent points. Two orientation variants.
+        pts = (LatticePoint(0, 0, 0), LatticePoint(1, 0, 0))
+        return [
+            Skeleton(points=pts, start_up=True),
+            Skeleton(points=pts, start_up=False),
+        ]
     seen: dict[tuple, Skeleton] = {}
     for q in range(1, n // 2 + 1):
         p = n - q
         sp = enumerate_skeletons(p)
         if q == 1:
             for s1 in sp:
+                # Each s1 already carries a start_up value (Sp is enumerated
+                # with both variants), so single-node combine inherits it.
                 for candidate in combine_with_single_node(s1):
+                    candidate = Skeleton(points=candidate.points,
+                                         chirality=candidate.chirality,
+                                         start_up=s1.start_up)
                     if not is_compact(candidate):
                         continue
                     key = canonical_key(candidate)
@@ -209,6 +223,14 @@ def enumerate_skeletons(n: int) -> list[Skeleton]:
             for s1 in sp:
                 for s2 in sq:
                     for candidate in combine_two_skeletons(s1, s2):
+                        # Inherit s1's start_up. Paper Appendix §: if join
+                        # orientation conflict, s2 is rotated 180° around X
+                        # (= z-flip s2, flipping its orientations). Since we
+                        # enumerate Sq with both start_up variants, the
+                        # conflict-resolution variant is already covered.
+                        candidate = Skeleton(points=candidate.points,
+                                             chirality=candidate.chirality,
+                                             start_up=s1.start_up)
                         if not is_compact(candidate):
                             continue
                         key = canonical_key(candidate)

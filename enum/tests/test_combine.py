@@ -136,17 +136,39 @@ def test_canonical_key_distinguishes_mirror_pair():
     assert canonical_key(triangle_ccw) != canonical_key(triangle_cw)
 
 
+def test_canonical_key_distinguishes_start_orientation():
+    """Phase C2: UP-start and DOWN-start same lattice are distinct
+    canonical keys (different linker-plane assignment per paper §1.1)."""
+    pts = (LatticePoint(0, 0, 0), LatticePoint(1, 0, 0), LatticePoint(2, 0, 0))
+    up = Skeleton(points=pts, start_up=True)
+    down = Skeleton(points=pts, start_up=False)
+    assert canonical_key(up) != canonical_key(down)
+
+
+def test_orientations_alternate_from_start_up():
+    """orientations property alternates from start_up per paper rule."""
+    s = Skeleton(
+        points=(LatticePoint(0, 0, 0), LatticePoint(1, 0, 0),
+                LatticePoint(2, 0, 0), LatticePoint(3, 0, 0)),
+        start_up=True,
+    )
+    assert s.orientations == (True, False, True, False)
+    s2 = Skeleton(points=s.points, start_up=False)
+    assert s2.orientations == (False, True, False, True)
+
+
 def test_enumerate_skeletons_s3_covers_base_shapes():
     """S3 via combine covers all 4 base adjacency patterns.
 
-    Phase C1: under rotation-only `canonical_key`, the Triangle splits
-    into 2 mirror variants (CW vs CCW), giving 5 distinct skeletons
-    across 4 adjacency patterns. `enumerate_s3_planar` dedupes by
-    adjacency-triple (a coarser invariant), still yielding 4.
+    Phase C1 split Triangle into CW/CCW mirror variants (4 → 5 shapes).
+    Phase C2 adds the `start_up` orientation flag, doubling distinct
+    skeletons (UP-start vs DOWN-start give different linker placements
+    per paper Appendix §1.1). Result: 10 skeletons across the same 4
+    adjacency patterns.
     """
     combine_s3 = enumerate_skeletons(3)
     planar_s3 = list(enumerate_s3_planar())
-    assert len(combine_s3) == 5
+    assert len(combine_s3) == 10
     assert len(planar_s3) == 4
     combine_patterns = {_adjacency_signature(s) for s in combine_s3}
     planar_patterns = {_adjacency_signature(s) for s in planar_s3}
@@ -154,37 +176,29 @@ def test_enumerate_skeletons_s3_covers_base_shapes():
 
 
 def test_enumerate_skeletons_s4_count():
-    """Phase C-S4 regression pin: S4 = 42 via combine (oracle: 41).
+    """Phase C2 regression pin: S4 = 84 via combine (oracle: 41).
 
-    Up from 14 once WHITELIST_S4 was corrected per Fig. S3 to include
-    the 4-edge triangle+pendant grid (paper b) and drop the bogus
-    6-edge K4 (not realizable on 2D hex). Combine now nearly matches
-    the oracle's 41 distinct skel_ids; the +1 discrepancy is likely a
-    single mirror-pair that needs RCC dedup, not a structural gap.
+    Double the 42 from Phase C-S4 once `start_up` is part of the
+    canonical key. We now overshoot the oracle (84 > 41) because
+    we count both UP-start and DOWN-start as distinct, while the
+    oracle pre-dedupes pairs that are sequence-reversal-symmetric
+    (paper §1.1 RCC dedup). Closing the overshoot is Phase C3
+    territory (RCC + handedness equivalence).
     """
-    assert len(enumerate_skeletons(4)) == 42
+    assert len(enumerate_skeletons(4)) == 84
 
 
 def test_enumerate_skeletons_s5_count():
-    """Phase C-S5 regression pin: S5 = 198 via combine (oracle: 648).
+    """Phase C2 regression pin: S5 = 396 via combine (oracle: 648).
 
-    Big jump from 72 after deriving WHITELIST_S5 directly from Fig. S3
-    (d-h): added the 5e tripod+2pendants (e) and 6e bowtie / sparse
-    K1,4 (g/h sparse) lattice variants which were previously rejected
-    by SCC-2. Combine now produces skeletons across all 4 paper-
-    derived S5 lattice signatures:
-      4e P5 (d):          12 skeletons
-      5e tripod+2pend (e): 98 skeletons
-      6e K1,4-sparse (g): 28 skeletons
-      7e K1,4-dense (f/g):60 skeletons
-
-    Remaining 3.3x gap to oracle 648 likely comes from chirality
-    variants (L/R) that our rotation-only canonical_key keeps distinct
-    but combine doesn't produce enough of, plus possibly a separate
-    (f) lattice realization the (g/h-shared) signature here doesn't
-    capture.
+    Double the 198 from Phase C-S5 once `start_up` lands in the
+    canonical key. Narrows the gap to oracle from 3.3x to 1.6x.
+    The remaining factor likely needs:
+      - additional (f) lattice variants we haven't enumerated yet
+      - or chirality-distinct combine paths the current canonical_key
+        rotation-only quotient still collapses
     """
-    assert len(enumerate_skeletons(5)) == 198
+    assert len(enumerate_skeletons(5)) == 396
 
 
 def test_s2_plus_s2_produces_compact_candidates():

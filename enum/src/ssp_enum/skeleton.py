@@ -29,6 +29,23 @@ ProSMoS's `handedness i j k L|R` query line. The geometric realization
 (specific Z assignments per node) is a separate concern, to be derived
 from (lattice points + chirality) when SSE-type and direction
 assignment land.
+
+SSE orientation (start_up)
+--------------------------
+Per Chitturi 2016 Appendix §1.1: "Each node ... has unit length and
+is perpendicular to xy-plane and sandwiched between z=0 (bottom plane)
+and z=1 (top plane). The orientation of the node indicates whether the
+SSE points into +z (up) or -z (down) axis. ... Consecutive nodes x, y
+have opposite orientation and are connected by a linker that lies
+entirely either in z=1 or in z=0 plane depending on whether the
+orientation of x is up or down."
+
+So orientation alternates and is fully determined by node 1's choice.
+`start_up: bool` records this — `True` means node 1 is up (sequence
+UP-DOWN-UP-DOWN-...); `False` means node 1 is down (DOWN-UP-DOWN-UP-...).
+The two starts give different linker placements (z=1 vs z=0 plane for
+each link), so they are distinct SSPs unless the skeleton happens to
+be symmetric under sequence reversal + start_up flip.
 """
 
 from __future__ import annotations
@@ -49,10 +66,28 @@ class Skeleton:
     `chirality` is one of ``None`` (unhanded / planar / no `hand` line in
     IA.txt), ``'L'``, or ``'R'``. Two skeletons with identical lattice
     points but different chirality are distinct SSPs.
+
+    `start_up` is the orientation of node 1 (paper Appendix §1.1). The
+    rest of the sequence's orientations alternate from this. Two
+    skeletons with identical lattice points but different `start_up`
+    are typically distinct SSPs (different linker-plane assignments),
+    unless the skeleton has a sequence-reversal symmetry that the
+    canonical form would identify.
     """
 
     points: tuple[LatticePoint, ...]
     chirality: Optional[str] = None
+    start_up: bool = True
+
+    @property
+    def orientations(self) -> tuple[bool, ...]:
+        """Per-node UP (True) / DOWN (False) orientation.
+
+        Alternates from `start_up` per the paper's "consecutive opposite"
+        rule. Result has length `dim`.
+        """
+        return tuple((self.start_up if i % 2 == 0 else not self.start_up)
+                     for i in range(self.dim))
 
     @property
     def dim(self) -> int:

@@ -167,13 +167,27 @@ so SCC-2 accept/reject is identical to the paper's. The lattice-
 embedding chirality is captured separately by the chirality label
 introduced in `enumerate_s3()`.
 
-**Combine-pairs Phase C status (rotation-only canonical_key + Fig. S3-derived whitelists):**
+**Combine-pairs Phase C status:**
 
-| Dim | Phase B | Phase C1 | Phase C-S4 | **Phase C-S5** | oracle (distinct skel_id) | paper |
-|---:|---:|---:|---:|---:|---:|---:|
-| 3 | 4   | 5   | 5   | 5   | 11   | 23   |
-| 4 | 10  | 14  | 42  | 42  | 41   | 221  |
-| 5 | 41  | 70  | 72  | **198** | 648  | 1239 |
+| Dim | Phase B | Phase C1 | Phase C-S4 | Phase C-S5 | **Phase C2** | oracle (distinct skel_id) | paper |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 3 | 4   | 5   | 5   | 5   | 10  | 11   | 23   |
+| 4 | 10  | 14  | 42  | 42  | 84  | 41   | 221  |
+| 5 | 41  | 70  | 72  | 198 | **396** | 648  | 1239 |
+
+Phase C2 added `start_up: bool` to `Skeleton` — the orientation of node 1
+(paper Appendix §1.1: "Consecutive nodes have opposite orientation and
+are connected by a linker that lies entirely in z=1 or z=0 plane depending
+on whether the orientation of x is up or down"). UP-start and DOWN-start
+produce distinct linker-plane assignments and so distinct SSPs. With
+`canonical_key` extended to include `start_up`, every skeleton becomes 2
+distinct skeletons → counts double.
+
+At S4 we now overshoot the oracle (84 > 41) and at S5 we approach but
+don't reach it (396 vs 648, ratio 1.64). The overshoot at S4 reflects
+the need for **sequence-reversal dedup** (RCC, paper §1.2): walking the
+sequence in reverse with start_up flipped gives the same physical
+arrangement, so should collapse to one. Phase C3 will add this.
 
 **S4 essentially matches (42 vs 41); S5 closes a major gap (72 → 198).**
 WHITELIST_S4 and WHITELIST_S5 are now derived directly from paper Fig. S3
@@ -206,21 +220,18 @@ enumeration doesn't yet produce — seeds + valid(s) extensions all
 stay in the z=0 plane.
 
 Next:
-1. **Fix WHITELIST_S5 the same way** — derive S5 lattice grids from
-   Fig. S3 (d, e, f, g, h). Paper (d) P5 and (e) tripod+pendant are
-   straightforward; (f) C5 cycle is clear; (g)/(h) K1,4 star is the
-   tricky one — at the explicit-edge level it's a 4-edge star, but
-   2D hex doesn't admit 4 pairwise non-adjacent leaves, so the
-   underlying lattice has 5–7 edges depending on which 4 of vertex 2's
-   6 hex neighbors are chosen as leaves. Likely need multiple lattice
-   variants in WHITELIST_S5 for paper (g)/(h). Phase C-S5.
-2. Investigate the +1 S4 discrepancy (42 vs 41) — probably an RCC
-   tie that produces a duplicate skeleton our canonical_key keeps
-   distinct. May resolve once RCC lands.
-3. RCC tie-breaking on equivalent skeletons (paper Appendix §1.2:
-   pair-wise distance sum, then unique-y count). Phase C-RCC.
-4. Handedness-based equivalence + SSE orientation tracking (paper
-   §1.1). Needed for full canonical-skeleton dedup matching CG-2012.
-5. SSE-type (H/E) and interaction-type assignment to grow
+1. **Phase C3: sequence-reversal + start_up-flip dedup**. A skeleton
+   walked in reverse with orientations flipped is the same physical
+   object. Currently kept distinct → S4 overshoots oracle 2x. Adding
+   this symmetry to `canonical_key` should bring S4 from 84 → ~42 and
+   S5 from 396 → ~200, then layered orientation chirality gets us
+   closer to the oracle's 648 once we figure out the remaining gap.
+2. **Handedness-based equivalence** (paper Appendix §1.1: (p × q) · r
+   with node z=±1 based on orientation). Needed for the full canonical
+   dedup matching CG-2012. Phase C4.
+3. **RCC tie-breaking** on equivalent skeletons (pair-wise distance
+   sum, then unique-y). Picks canonical representative among
+   equivalent. Phase C5.
+4. SSE-type (H/E) and interaction-type assignment to grow
    skeletons into full SSPs. Post-Phase-C.
-6. ProSMoS-format writer (`prosmos.py`) — depends on (5).
+5. ProSMoS-format writer (`prosmos.py`) — depends on (4).
