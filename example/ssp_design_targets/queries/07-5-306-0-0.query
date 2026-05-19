@@ -1,0 +1,13 @@
+1 2 3 4 5
+E E E E E
+* - - - c
+  * t c -
+    * - c
+      * -
+        *
+sheetS 1 2 3 4 5
+length 1 E 5 1000
+length 2 E 5 1000
+length 3 E 5 1000
+length 4 E 5 1000
+length 5 E 5 1000
