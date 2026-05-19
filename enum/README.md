@@ -108,15 +108,16 @@ was restored from archive in May 2026 and lives on the leda fileserver.
 
 ## Status
 
-S3 full enumeration + SCC-2 whitelist + combine-pairs Phase A land green (28 tests pass):
+S3 full enumeration + SCC-2 whitelist + combine-pairs Phase A & B land green (30 tests pass):
 
 ```
 tests/test_oracle.py     ✓  4 passed
 tests/test_enumerate.py  ✓  7 passed
 tests/test_grids.py      ✓  7 passed
-tests/test_combine.py    ✓ 10 passed   (valid(s)/adjacent(s), single-node combine,
-                                        canonical-key invariances, S3-via-combine=4,
-                                        S4-via-combine=10, S5-via-combine=31)
+tests/test_combine.py    ✓ 12 passed   (single+multi node combine, canonical-key
+                                        invariances, S3=4 S4=10 S5=41 regression
+                                        pins, S2+S2 emits compact candidates,
+                                        S3+S2 adds S5 skeletons over single-node)
 ```
 
 Implemented:
@@ -127,10 +128,12 @@ Implemented:
 - `grids.py` — unlabeled-adjacency-graph canonical form + per-dimension whitelists
   (S3: 2 grids; S4: 3 grids; S5: 4 unique signatures, see g≡h note below)
 - `enumerate.py` — dimension dispatcher; `enumerate_s3_planar` (4 base shapes);
-  `enumerate_s3` (11 SSPs = planar + chiral); `enumerate_skeletons(n)` via combine
-- `combine.py` — single-node combine (Phase A of paper Appendix §1.1):
-  `valid_extension_points`, `combine_with_single_node`, `canonical_key` (quotients
-  by translation, 12 hex-XY symmetries, and z-flip)
+  `enumerate_s3` (11 SSPs = planar + chiral); `enumerate_skeletons(n)` via combine,
+  iterating all (p, q) splits with p+q=n, p≥q
+- `combine.py` — Chitturi 2016 Appendix §1.1 + §1.2 combine-pairs growth:
+  `valid_extension_points`, `combine_with_single_node` (|s2|=1),
+  `combine_two_skeletons` (|s2|≥2: anchor × ext_pt × 60°·k × {front,end} join),
+  `canonical_key` (quotients by translation, 12 hex-XY symmetries, and z-flip)
 
 S3 planar produces the 4 base spatial-sequence patterns from CG-2012's
 S3/Stru.txt. Crossing each base shape with chirality (per `enumerate_s3`)
@@ -162,25 +165,34 @@ so SCC-2 accept/reject is identical to the paper's. The lattice-
 embedding chirality is captured separately by the chirality label
 introduced in `enumerate_s3()`.
 
-**Combine-pairs Phase A status (single-node growth only):**
+**Combine-pairs Phase B status (single + multi-node geometric combine):**
 
-| Dim | combine (this) | oracle | paper | gap reason |
+| Dim | combine (this) | oracle (distinct skel_id) | paper | gap reason |
 |---:|---:|---:|---:|---|
 | 3 | 4   | 11   | 23   | S3 chirality not yet applied in combine route |
-| 4 | 10  | 41   | 221  | Phase B: S2 + S2 combine + SSE-type assignment |
-| 5 | 31  | ~2377| 1239 | Phase B: S3 + S2 combine + downstream filtering |
+| 4 | 10  | 41   | 221  | Mirror/chirality variants collapsed by canonical_key; SSE-type assignment |
+| 5 | 41  | 648  | 1239 | Same as S4 plus z-displacement variants we don't produce |
 
-Single-node growth covers Sn = Sn-1 + S1 only. Skeletons reachable
-only via S4 = S2 + S2 or S5 = S3 + S2 are missing.
+Phase B's S2+S2 combine yielded 4 compact candidates but all turn out
+canonically equivalent to S3+S1 results — geometrically expected since
+any compact 4-point lattice arrangement is reachable by growing a node
+onto some compact 3-point arrangement. S3+S2 contributes 10 new S5
+skeletons (31 → 41).
+
+The remaining gap to the oracle is in *handedness* and *mirror*
+distinctions: our `canonical_key` quotients by 12 hex-XY symmetries
+(including reflections) and z-flip, so mirror pairs and chirality
+variants the oracle keeps distinct collapse here. Phase C will narrow
+the quotient to rotations-only (and add SSE orientation tracking).
 
 Next:
-1. Phase B combine-pairs: multi-node combine (`1 < |s2| ≤ |s1|`). For
-   each valid(s1) anchor, superpose each point of s2 and rotate by
-   60k degrees, applying compactness checks per Appendix pseudocode.
-2. RCC tie-breaking on equivalent skeletons (paper Appendix §1.2:
+1. RCC tie-breaking on equivalent skeletons (paper Appendix §1.2:
    pair-wise distance sum, then unique-y count). Phase C.
-3. Handedness-based equivalence (paper Appendix §1.1: same handedness
-   for every triple → equivalent). Phase C.
+2. Handedness-based equivalence (paper Appendix §1.1: same handedness
+   for every triple → equivalent). Narrow `canonical_key` to rotation-
+   only. Phase C.
+3. SSE orientation tracking + the conflict-resolution 180° X-axis
+   rotation when join orientations clash. Phase C.
 4. SSE-type and interaction-type assignment to grow skeletons into
    full SSPs.
 5. ProSMoS-format writer (`prosmos.py`) — depends on (4).

@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from typing import Iterator
 
-from .combine import canonical_key, combine_with_single_node
+from .combine import canonical_key, combine_two_skeletons, combine_with_single_node
 from .compactness import is_compact
 from .lattice import LatticePoint
 from .skeleton import Skeleton
@@ -173,29 +173,47 @@ _SEED_S2 = Skeleton(points=(LatticePoint(0, 0, 0), LatticePoint(1, 0, 0)))
 
 
 def enumerate_skeletons(n: int) -> list[Skeleton]:
-    """Labeled skeletons at dimension `n` via combine-pairs growth (single-node).
+    """Labeled skeletons at dimension `n` via combine-pairs growth.
 
-    Phase A: |s2| = 1 only — Sn is grown from S_{n-1} by adding one
-    node. Returns a deduplicated list (by `canonical_key`) of compact
-    skeletons (PCC ∧ SCC-1 ∧ SCC-2 all satisfied).
+    Iterates all (p, q) splits with p + q = n and p ≥ q ≥ 1. For each
+    split, every (s1 ∈ Sp, s2 ∈ Sq) pair is combined (single-node when
+    q == 1, multi-node otherwise). The union is deduplicated by
+    `canonical_key` and filtered by `is_compact` (PCC ∧ SCC-1 ∧ SCC-2).
 
-    Phase B (pending) will add multi-node combine, which is needed for
-    full coverage of S4 (S2 + S2 produces skeletons unreachable by
-    single-node growth) and S5 (S3 + S2 likewise).
+    Phase B (current) covers single-node and multi-node geometric combine.
+    Deferred to Phase C:
+      - RCC tie-breaking on equivalent skeletons (paper Appendix §1.2)
+      - Handedness-based equivalence (paper Appendix §1.1: triple-wise
+        handedness identity → equivalence)
+      - SSE orientation tracking + the conflict-resolution 180° X-axis
+        rotation when join orientations clash
     """
     if n == 1:
         return [_SEED_S1]
     if n == 2:
         return [_SEED_S2]
-    prev = enumerate_skeletons(n - 1)
     seen: dict[tuple, Skeleton] = {}
-    for s1 in prev:
-        for candidate in combine_with_single_node(s1):
-            if not is_compact(candidate):
-                continue
-            key = canonical_key(candidate)
-            if key not in seen:
-                seen[key] = candidate
+    for q in range(1, n // 2 + 1):
+        p = n - q
+        sp = enumerate_skeletons(p)
+        if q == 1:
+            for s1 in sp:
+                for candidate in combine_with_single_node(s1):
+                    if not is_compact(candidate):
+                        continue
+                    key = canonical_key(candidate)
+                    if key not in seen:
+                        seen[key] = candidate
+        else:
+            sq = enumerate_skeletons(q)
+            for s1 in sp:
+                for s2 in sq:
+                    for candidate in combine_two_skeletons(s1, s2):
+                        if not is_compact(candidate):
+                            continue
+                        key = canonical_key(candidate)
+                        if key not in seen:
+                            seen[key] = candidate
     return list(seen.values())
 
 

@@ -7,27 +7,38 @@ Paper Appendix § "secondary compactness criterion":
     s2; s1 is larger. ... we either augment m with a single node
     (|s2| = 1) or another skeleton (1 < |s2| ≤ m) with at most m nodes.
 
-This module currently implements the `|s2| = 1` case only — single-node
-growth from a larger skeleton. That alone gives Sn = Sn-1 + S1 for any
-n, missing the cases where the smaller piece has 2+ nodes (S4 = S2 + S2,
-S5 = S3 + S2). Phase B extends to multi-node combine.
+This module implements both cases:
 
-Paper Appendix pseudocode (single-node simplified):
+  * `combine_with_single_node(s1)` — |s2| = 1. For each valid extension
+    point of s1, yields both front- and end-join skeletons.
+  * `combine_two_skeletons(s1, s2)` — |s2| ≥ 2. For each anchor point of
+    s2, each valid extension point of s1, and each 60° rotation of s2
+    around the anchor, positions s2 and yields both front-/end-join
+    combined skeletons (overlap with s1 rejects).
+
+Paper Appendix pseudocode:
 
     valid(s1) = {p ∉ s1 :
         p is collinear with at least two points of s1, OR
         p is adjacent to at least two points of s1}
 
-    For each p ∈ valid(s1):
-        Form skeleton s by adding p at the end of s1 (label |s1| + 1), and
-        also by adding p at the front of s1 (label 1, shift s1 labels +1).
-        Check PCC, SCC-1, SCC-2 on s.
-        If passes, deduplicate against existing candidates via canonical form.
+    L1) For every skeleton s2 of size q, each point of s2 is superposed
+        on each point of valid(s1).
+    L2) For each such superposition, s2 is rotated around the chosen
+        point in xy by 60k degrees where 0 ≤ k ≤ 5.
 
-The front/end joining distinction matters: same lattice arrangement with
-different sequence labels is a different skeleton (paper Methods: "The
-labels of the grid points are changed to reflect their new positions in
-the combined skeleton").
+The front/end joining distinction matters: same lattice arrangement
+with different sequence labels is a different skeleton (paper Methods:
+"The labels of the grid points are changed to reflect their new
+positions in the combined skeleton").
+
+Deferred to Phase C:
+  - SSE orientation tracking. Paper Appendix §: "if the orientations of
+    the start node of s2 and the end node of s1 are the same then s2 is
+    rotated 180 degrees around X-axis." We don't track up/down node
+    orientation yet, so the conflict-resolution rotation isn't applied
+    here. Skeletons with mismatched orientation are still emitted; they
+    will be filtered (or have s2 z-flipped) once orientation lands.
 """
 
 from __future__ import annotations
@@ -94,6 +105,64 @@ def combine_with_single_node(s1: Skeleton) -> Iterator[Skeleton]:
     for new_point in valid_extension_points(s1):
         yield Skeleton(points=s1.points + (new_point,))
         yield Skeleton(points=(new_point,) + s1.points)
+
+
+def _position_s2(
+    s2: Skeleton,
+    anchor: LatticePoint,
+    target: LatticePoint,
+    rotation_k: int,
+) -> tuple[LatticePoint, ...]:
+    """Place s2 so its `anchor` lands at `target`, rotated by 60°·k around the anchor.
+
+    Anchor is one of s2's own points (the "selected point" in the
+    paper's wording). The transformation: translate s2 so anchor is at
+    origin, rotate by k·60° about origin, translate so anchor sits at
+    target. Z coordinates pass through unchanged (hex rotation is in
+    xy only).
+    """
+    out: list[LatticePoint] = []
+    for p in s2.points:
+        dq = p.q - anchor.q
+        dr = p.r - anchor.r
+        for _ in range(rotation_k % 6):
+            dq, dr = -dr, dq + dr
+        out.append(LatticePoint(dq + target.q, dr + target.r, p.z))
+    return tuple(out)
+
+
+def combine_two_skeletons(s1: Skeleton, s2: Skeleton) -> Iterator[Skeleton]:
+    """Multi-node combine of `s1` (larger) with `s2` (1 < |s2| ≤ |s1|).
+
+    For each anchor in s2 × each ext_pt in valid(s1) × each 60° rotation k,
+    position s2 with anchor at ext_pt, rotated by k. Reject if any
+    positioned s2 point coincides with an s1 point (paper Appendix
+    pseudocode L2: "if none of the points of s1 and s2 intersect ...").
+    Yield both front-join (combined = positioned_s2 + s1.points) and
+    end-join (combined = s1.points + positioned_s2) candidates.
+
+    The caller is responsible for `is_compact()` and canonical-form
+    deduplication. For |s2| = 1, delegate to `combine_with_single_node`
+    (which is geometrically the same but avoids the rotation loop, since
+    a single-point skeleton is rotation-invariant).
+    """
+    if s2.dim == 1:
+        yield from combine_with_single_node(s1)
+        return
+
+    s1_set = set(s1.points)
+    extension_pts = valid_extension_points(s1)
+    for ext_pt in extension_pts:
+        for anchor in s2.points:
+            for k in range(6):
+                positioned = _position_s2(s2, anchor, ext_pt, k)
+                pos_set = set(positioned)
+                if len(pos_set) < len(positioned):
+                    continue   # rotation collapsed two s2 points (shouldn't on hex, but guard)
+                if pos_set & s1_set:
+                    continue   # overlap with s1: rejected
+                yield Skeleton(points=positioned + s1.points)        # front-join
+                yield Skeleton(points=s1.points + positioned)        # end-join
 
 
 # Hex axial-coord lattice symmetries: 6 rotations × 2 reflections = 12 ops.
