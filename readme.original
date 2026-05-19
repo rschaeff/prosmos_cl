@@ -1,0 +1,545 @@
+ProSMoS - Searching for three dimensional secondary structural patterns in proteins.ProSMoS
+
+____________________________________________________________________________________________
+
+                        LICENSE AGREEMENT 
+
+ProSMoS is a Protein Structure Motif Search program that emulates an expert.
+Starting from a spatial structure, the program uses previously delineated 
+secondary structural elements. A meta-matrix of interactions between the 
+elements (parallel or antiparallel) minding handedness of connections 
+(left or right) and other features (e.g. element lengths and hydrogen bonds) 
+is constructed prior to or during the searches. All structures are reduced to
+such meta-matrices that contain just enough information to define a protein
+fold, but this definition remains very general and deviations in 3D coordinates
+are tolerated. User supplies a meta-matrix for a structural motif of interest, 
+and ProSMoS finds all proteins in the Protein Data Bank (PDB) that match the meta-matrix. 
+
+ProSMoS is free for academic use only. For non-academic use, please contact 
+Shuoyong Shi. 
+_____________________________________________________________________________________________
+
+For bug reports, questions, or comments please contact shuoyong.shi@UTsouthwestern.edu.
+
+First, Let us look what is in the ProSMOS directory:
+    
+./readme: this file,please read it to set up your computer for running ProSMoS
+
+./searchMatrix: ./searchMatrix/Linux   searchmatrix program for Linux system.
+                ./searchMatrix/SunOS   searchmatrix program for SunOS system.
+                ./searchMatrix/src     source code of searchmatrix program,
+                                       you can compile it for your system.
+                Note: system requirement:  g++, linux or unix system.
+
+./generateMatrix:  ./generateMatrix/Linux generateMatrix program for Linux system.
+                   ./generateMatrix/src   source code of generateMatrix program,
+                                          you can compile it for your system.
+	           Note: system requirment: MPI,mpicxx, linux or unix system.       
+
+./metamatrixdb:   ./metamatrixdb/metamatricesDB.gz  precomputed mematrices database by
+                                                    generateMatrix program.
+                                                    
+./scripts         ./scripts/map2scop     program and preformatted scop 1.71 database for
+                                         mapping output of searchmatrix program to SCOP.
+                   Note: system requirement: perl (version 5.6 or above), MySQL database.                       
+                   
+                  ./scripts/generateinsighitIIlog   program for generate insightII log file
+                                                    from output of searchmatrix program.
+                   Note: system requirement: perl (version 5.6 or above)                                 
+                  ./scripts/generatemolscript       program for generate molscript input file
+                                                    from pdb hits of searchmatrix program.                                                                           
+                   Note: system requirement: perl (version 5.6 or above)
+                  ./scripts/fetchmatrix             programs for generate matrix with list of SSEs,
+                                                    sheet info, interaction matrix and handedness for
+                                                    each tripe element for user to design query matrix.
+                                                    
+                   Note: system requirement: perl (version 5.6 or above)
+                      
+./example        ./example/    B-grasp structue pattern search result; mapping to SCOP 1.71 result,
+                               insightII log file;
+
+
+OK, Let us see how to use the programs.............................    
+   
+0. Overview of Program workflow:
+	a. PALSSE (ref 1) program generate SSEs information from PDB.
+	b. ProSMos read SSEs information from output of PALSSE and then generate metamatrices DB
+	c. user design a query matrix for interested structure pattern.
+	d. The query matrix will be used to search againt metamatrices DB by ProsMos.
+	e. map the output hits to SCOP database.
+	f. generate InsightII log files for visual study.
+	g. generate molscript inputfile.
+	
+*************************************************************************************************	
+!!!
+PLEASE PAY MORE ATTENTION TO THE STEP C and D. YOU CAN START STRUCTURE PATTERN SEARCH FROM STEP C
+AND OVERLOOK STEP A AND B, SINCE WE PROVIDE THE PRECOMPUTED RESULT OF STEP A AND B. THANKS!
+************************************************************************************************* 	
+	
+1.Step a: PALSSE
+  PALSSE is the program to delineate linear secondary structural elements from protein structures,
+  which is robust to coordinate errors up to 1.5 angstrom. The SSEs identified by it cover an average
+  of about 85% of residues in structures and mostly agree with expert definition. For details, please
+  see ref 1.The PALSSE program can be downloaded from http://prodata.swmed.edu/palsse/palsse.php.
+  If you want to generate memamatrix by yourself, you will need the result of PALSSE files and run
+  "generatematrix" program (step). However, we suggest you start from step c, since it will take time
+  and effort to generate metamatrix based on the whole result of PALSSE whose oupput file is as large as 25G.
+
+2.Step b:  generate metamatrix.
+  Each PDB file is pre-processed to generate a meta-matrix. Meta-matrix contains the following information: 
+  SSE types, coordinates of SSE starts and ends, types of interactions between SSEs, and b-sheet definitions. 
+  Handedness is calculated from the meta-matrix on the fly during searches. 
+  
+  the program to generate metamatrix can be downloaded from ftp://iole.swmed.edu/pub/ProSMoS/generatematrix
+  
+  How to install it:
+  
+  the program for Linux system is in ftp://iole.swmed.edu/pub/ProSMoS/generateMatrix/Linux/
+  
+  However, since there are different linux and unix version, I am not sure the prcompiled program can work on
+  your platform.
+  
+  So, you can download the sourcecode from ftp://iole.swmed.edu/pub/ProSMoS/generateMatrix/src/ and compile it.
+  
+  make a directory on your computer for example for_genmatrix
+  copy all the files in ./src to the directory you made.
+  in that directory:
+  mpicxx generMatrix.cpp -o generateMatrix
+  
+  please make sure you have installed MPI package in your system.
+
+  How to use it:
+  
+  the first paremeter is the name of the objection file
+	the second parameter is the name of pdb id (pdbid.ssd)
+	the third parameter is an fixed option -os
+	the fouth parameter is the path name of indraneel outputfile
+	the fifth parameter is the path name and file name of your output file
+	for example: ./generateMatrix -os 1b5s.ssd ./palsse/ssd/ ./outputdir/1b5s.out
+ 
+  After generate metamatrix for each ssd file (ssd files are the result of PALSSE)
+  you can put output files together by:
+  cat *.out > metamatricesDB
+  
+  Note:
+  generatematrix program is designed on linux clusters with MPI. This is the reason why I suggest you used 
+  the metamatrices DB precomputed by us :).
+  
+  we provide the precomputed database which generated based on the latest data of PALSSE.
+  you can download from ftp:/iole.swmed.edu/pub/ProSMos/metamatrixdb/metamatricesDB
+
+  If you have specific requirment of the database, please contact us.
+  
+  Parameters of ProSMoS meta-matrices
+  Symbols in a meta-matrix from a database
+   c - two SSEs are parallel b-strand and have more than 2 hydrogen bonds between them;
+   t - two SSEs are antiparallel b-strand and have more than 2 H-bonds between them;
+   u - two SSEs interact and the angle between SSEs is less than 85 degree;
+   v - two SSEs interact and the angle between SSEs is no less than 95 degree;
+   N - two SSEs interact and the angle between SSEs is no less than 85 degree, but less than 95 degree;
+   - - no interaction between two SSEs.
+   
+3. Step c:  user design a query matrix for interested structure pattern.
+   X - presence or absence of interaction between two SSEs is not checked and not used;
+	 x - interaction should be present, but the angles are not checked and not used;
+   C - interaction present (with or without H-bonds), the angle is less than 85 degree;
+   T - interaction present (with or without H-bonds), the angle is no less than 95 degree;
+   c - H-bond interaction present, the two b-strands are parallel;
+   t - H-bond interaction present, the two b-strands are antiparallel;
+   u - interaction present (without H-bonds), the angle is less than 85 degree;
+   v - interaction present (without H-bonds), the angle is no less than 95 degree;
+   N - interaction present, the angle is no less than 85 degree, but less than 95 degree;
+   - - no interaction present.
+   
+  Handedness - specifies right-handedness (R) or left-handedness (L) for selected elements. 
+  E.g. handedness 1 2 3 R symbolizes that the three elements 1,2, and 3 are right-handed.
+  
+  sheets S, or sheet D - specifies b-strands that are in the same b-sheet (sheet S) or 
+  in different b-sheets (sheet D). E.g. sheet D 1 2 3 means that b-strands 1, 2, and 3
+  are not all in the same b-sheet. It is OK if two of these b-strands is in the same sheet, but not all three.
+
+  chain S, or chain D - specified elements are in the same chain (chain S) or in different chains (chain D);
+  E.g. chain S 1 2 3 means that all three elements 1, 2, and 3 belong to a single PDB chain.
+
+  length - specify restrictions on the element length. E.g. length 3 H 8 50 requires the third element,
+  which is an a-helix, to be at least 8 residues long and no more than 50 residues long (8 and 50 are included).
+  If only one number is given, e.g. length 3 H 8 then the element must be no shorter than that number of residues (8).
+  parallel and antiparallel - specify the relationship of b-strands that are in the same b-sheet, 
+  but are not hydrogen-bonded neighbors.E.g. parallel 1 3. means that non-H-bonded b-strands 1 and 3 are parallel.
+  
+  for example: query matrix for b-grasp structure pattern:
+  1 2 3 4 5
+  E E H E E
+  * t C - c
+    * T - -
+      * x C
+        * t
+          *
+  handedness   2   3  4   R
+  length 3 H 7 1000
+
+4. Step d:   search query matrix againt metamatrices DB by ProsMos (searchmatrix program).
+   This is the main program for searching structure pattern in metamatrices databases.
+  
+   How to install it:
+   
+   the program for Linux system is in ftp://iole.swmed.edu/pub/ProSMoS/searchMatrix/Linux/searchmatrix
+   the program for SunOS system is in ftp://iole.swmed.edu/pub/ProSMoS/searchMatrix/SunOS/searchmatrix
+  
+   However, since there are different linux and unix version, I am not sure the prcompiled program can work on
+   your platform.
+  
+   So, you can download the sourcecode from ftp://iole.swmed.edu/pub/ProSMoS/searchmMatrix/src/ and compile it.
+  
+   make a directory on your computer for example for_searchmatrix
+   copy all the files in ./src to the directory you made.
+   in that directory:
+   g++ searchMatrix.cpp -o searchmatrix
+   
+   How to use it:
+   
+   first,  write and save your query matrix as query.txt
+   second, download metamatricesDB from ftp:/iole.swmed.edu/pub/ProSMos/metamatrixdb/metamatricesDB.gz
+           and put it in any directory you want. for example ../db
+           gzip -d metamatricesDB.gz
+   
+   third,  ./searchmatrix ./query.txt ../db/metamatricesDB ./searchoutput
+   
+   this will search the querymatrix against metamatricesDB and output files will be put in ./searchoutput
+ 
+   Output example:
+   pdb1aor
+   sub-matrix:
+   MOTIF:
+   segment-Type: E Position:  71 Range: 119 -- 126  B Length:   8
+   segment-Type: E Position:  72 Range: 127 -- 134  B Length:   8
+   segment-Type: H Position:  74 Range: 141 -- 154  B Length:  14
+   segment-Type: E Position:  75 Range: 158 -- 163  B Length:   6
+   segment-Type: E Position:  81 Range: 197 -- 205  B Length:   9
+   MOTIF:
+   segment-Type: E Position:  60 Range:   6 --  14  B Length:   9
+   segment-Type: E Position:  61 Range:  15 --  23  B Length:   9
+   segment-Type: H Position:  63 Range:  33 --  46  B Length:  14
+   segment-Type: E Position:  64 Range:  58 --  63  B Length:   6
+   segment-Type: E Position:  70 Range: 107 -- 115  B Length:   9
+   MOTIF:
+   segment-Type: E Position:  12 Range: 119 -- 126  A Length:   8
+   segment-Type: E Position:  13 Range: 127 -- 134  A Length:   8
+   segment-Type: H Position:  15 Range: 141 -- 154  A Length:  14
+   segment-Type: E Position:  16 Range: 158 -- 163  A Length:   6
+   segment-Type: E Position:  22 Range: 197 -- 205  A Length:   9
+   MOTIF:
+   segment-Type: E Position:   1 Range:   6 --  14  A Length:   9
+   segment-Type: E Position:   2 Range:  15 --  23  A Length:   9
+   segment-Type: H Position:   4 Range:  33 --  46  A Length:  14
+   segment-Type: E Position:   5 Range:  58 --  63  A Length:   6
+   segment-Type: E Position:  11 Range: 107 -- 115  A Length:   9
+   END
+ 
+   SSE type,SSE index position in correspoinding mematrix,SSE range (start and end) ,PDB chain and SSE length are listed.
+   
+   Note: the start and end of range have 5 character each (4 digital atom position index in PDB + 1digital insertion code
+   , if no insertion code " " used instead); For chain, if there are no chain info such chain A, chain B....in PDB, " " 
+   used instead.
+   
+   From the output you can do research further. For convience, we provide three simple program which may be help for
+   work.
+   
+   
+5. Step e:    map the output hits to SCOP database.
+   we provide a script named mapscop.pl which can be downloaded from ftp://iole.swmed.edu/pub/ProSMoS/scripts/map2scop/mapscop.pl
+   This script is written by perl. It uses Mysql database which contains the scop information.
+   
+   The script is running on windows platform with MYSQL preinstalled. PERL language should be installed in your computer.
+   (I test it on windows system, however, if you install MySQL on linux or unix system, I guess it will works fine)
+   
+   We provide a preformatted mysql database which contains the information of SCOP1.71 (dir.des.scop.txt ,
+   dir.cla.scop.txt, dir.hie.scop.txt, dir.com.scop.txt, PDB-style files for SCOP domains)
+   
+   How to use it:
+   
+   1), download the preformated scop database from ftp://iole.swmed.edu/pub/ProSMoS/scripts/map2scop/mysqlscopdb.tar.gz
+       gzip -d mysqlscopdb.tar.gz
+       tar -cvf mysqlscopdb.tar
+       it will generate four files: dirdes171.sql; dirhie171.sql dircom171.sql dircla171.sql pdbstyle171.sql
+       create a database in MySQL:
+       for example: mysql -u root -p  to login your mysql first;
+                    creat database SCOP;
+                    mysql -u root -p SCOP < dirhie171.sql
+                    mysql -u root -p SCOP < dirdes171.sql
+                    mysql -u root -p SCOP < dircla171.sql
+                    mysql -u root -p SCOP < dircom171.sql
+                    mysql -u root -p SCOP < pdbstyle171.sql
+                    
+   2). make a pdb hits list based on the output of previous step:
+      ls -1 ./searchoutput > pdbhitslist (or you can write a small script to extract the name list 
+                                          of output of searchmatrix program).
+
+   3). copy the pdbhitslist and output directory (from previous step) to your computer (windows)
+
+   4). run mapscop.pl Usage: [pdbhitslist][pdbhitsdir][superfamilydir][folddir][elementnumber]
+      for example:
+   	mapscop.pl .\pdbhitslist .\searchoutput\ .\superfamilyinfooutput\ .\foldinfooutput\ 5
+      
+      Note: to make mapscop.pl work, you must specify the Mysql database info, username, password in mapscop.pl
+            I have marked the place you need revised in mapscop.pl. It is at the 5,6,7 line of the script.
+
+      Here ,the element number is the element number in your query matrix, for example, in b-grasp
+      query matrix, there is 5 elements, so we put 5 here.
+
+      pdbhitlist is the file list for hits in output
+      searchoutput is the output dir of ProSMos search in previous steps.
+      
+      superfamilyinfoutput and foldinfooutput is the dir where you want the result put in.
+      
+      the foldlist in foldinfooutput directory lists the fold that result of searchmatrix 
+      program mapping on SCOP.
+
+      the pdbhitsnorecordinscop lists the pdbid not in SCOP;
+      
+      the superfamilyfilelist in superfamilyinfooutput directory lists the superfamily that
+      result of searchmatrix program mapping on SCOP.
+      
+      the superfamilyallinfo in superfamilyinfooutput directory contains the detail information
+      for each superfamily mapping
+      
+      the pdbdomainmapped in superfamilyinfooutput directorylists the pdbid, nodeid (SCOP id), motif
+      in output result of searchmatrix program.
+      
+      the domaincheckinfo is the special situation that usr may want to look and check. basiclly, you can
+      overlook it.
+      
+      for example, pdbstyle does not contain certain chain atoms information for one PDB structures 
+                   with multi chain, those chain maybe missing in pdbstyle file. So we oupput this warning 
+                   information. For example, 1njp in scop it has three chain 0,K and T. in pdbstyle171 it 
+                   just has chain K and T. Those cases mainly happen in low resolution protein structures.
+                   
+                   but it does not matter, for example we still can map 1njp to i.1.1 superfamily.
+                   
+                   pdb1njp
+                   sub-matrix:
+                   MOTIF:
+                   segment-Type: E Position:  13 Range:  18 --  26  T Length:   9
+                   segment-Type: E Position:  14 Range:  27 --  35  T Length:   9
+                   segment-Type: H Position:  15 Range:  35 --  47  T Length:  13
+                   segment-Type: E Position:  18 Range:  67 --  72  T Length:   6
+                   segment-Type: E Position:  20 Range:  80 --  84  T Length:   5
+                   END
+                   
+       Again, our searchmatrix program search whole pdb not domain. so some atoms may not include
+       in domain definition of SCOP, for example 1oqy. In scop, the domain is A:1-77; A160-200;
+       A232-283;A317-A360
+                   
+       In our search of B-grasp, the motif is :
+       pdb1oqy
+       sub-matrix:
+       MOTIF:
+       segment-Type: E Position:   1 Range:   4 --  10  A Length:   7
+       segment-Type: E Position:   2 Range:  12 --  18  A Length:   7
+       segment-Type: H Position:   4 Range:  24 --  37  A Length:  14
+       segment-Type: E Position:   6 Range:  44 --  50  A Length:   7
+       segment-Type: E Position:  11 Range:  71 --  78  A Length:   8
+       END
+							 
+       so ,you can see the atom 78 is missing in SCOP, we output this information to domaincheckinfo.
+       it is not error, just a warning. we still can map it to d.15.1 superfamily.
+                   
+      
+6. Step f:   generate insightII log
+   this script will generate insightII log for pdb structures of the output pdbhits of searchmatrix program.
+   this script can be downloaded from ftp://iole.swmed.edu/pub/ProSMoS/scripts/generateinsightIIlog/generateinsightIIlog.pl
+
+   Usage:perl generateinsightIIlog.pl [option][pdbhitslist][ProSMoS result dir][elenumber][pdbdir][resultdir]
+   option meaning:
+   if you want to look just 1 motif, the first motif in ProSMoS output file will be used, please set option as -s 
+   if you want to look all the motifs, all the motifs in ProSMoS output file will be used, please set option as -m 
+   Example:perl generateinsightIIlog.pl -s pdbhitslist ./ProSMoSoutput/ 5 ./pdbstructure/ ./insightlogoutput/ 
+
+   
+   How to use it:
+   
+   1). make a pdb hits list based on the output of searchmatrix program:
+      ls -1 ./searchoutput > pdbhitslist (or you can write a small script to extract the name list 
+                                          of output of searchmatrix program).
+                                          
+       you can also specify some pdb hits and write and save them in pdbhitslist, then just those pdb
+       will be used for generating insightII log.
+                                          
+   2). ProSMoSoutput directory is the output of searchmatrix program.
+
+   3). Here ,the element number is the element number in your query matrix, for example, in b-grasp
+       query matrix, there is 5 elements, so we put 5 here.
+
+   4). pdbstructure directory should contain the pdb files for the pdbhits of the output of searchmatrix program.
+       for example , you have pdb1ubq.txt in the ProSMoSoutput directory, then you should have the 1ubq.pdb in 
+       pdbstructure directory. pdb files can be downloaded from http://www.rcsb.org/pdb
+
+   5). make a directory on your computer, for example ./insightlogoutput.  the results of generateinsightIIlog program
+       will be put in this directory.
+
+   6). transfer the insightlogoutput to the computer with insightII installed.  
+       start insightII package in this directory and then  file->sourcefile
+       select the files with suffix .log   
+       
+       the struture will be displayed in insightII in trace only manner.
+       
+       the N-terminal start of first secondary structure element (SSE) in motif will be marked as green. 
+       the N-terminal start of other SSEs will be marked as blue. 
+       the mainbody of SSEs will marked as yellow.
+       
+   
+   Note: the structures will be displayed by chain: for example 1aor has two chains A and B containg b-grasp
+   structure pattern.then the output files for it are: 1aor_A.pdb 1aor_A.log 1aor_B.pdb 1aor_B.log. 
+          
+         the option -s means single, i.e. just select the first motif in one searchmatrix output file
+         the option -m means multi,  i.e. select all the motifs in one searchmatrix output file.
+         
+         for example,  pdb1aor.txt in chain B there are two different motifs, 
+                       if you select option -s, just the first motif from 119 to 205 will be used for chain B.
+                       if you select option -m, both the two motifs from 119 to 205 and from 6 to 115 will be
+                       used for chain B
+         
+         
+         pdb1aor
+         sub-matrix:
+         MOTIF:
+         segment-Type: E Position:  71 Range: 119 -- 126  B Length:   8
+         segment-Type: E Position:  72 Range: 127 -- 134  B Length:   8
+         segment-Type: H Position:  74 Range: 141 -- 154  B Length:  14
+         segment-Type: E Position:  75 Range: 158 -- 163  B Length:   6
+         segment-Type: E Position:  81 Range: 197 -- 205  B Length:   9
+         MOTIF:
+         segment-Type: E Position:  60 Range:   6 --  14  B Length:   9
+         segment-Type: E Position:  61 Range:  15 --  23  B Length:   9
+         segment-Type: H Position:  63 Range:  33 --  46  B Length:  14
+         segment-Type: E Position:  64 Range:  58 --  63  B Length:   6
+         segment-Type: E Position:  70 Range: 107 -- 115  B Length:   9
+         MOTIF:
+         segment-Type: E Position:  12 Range: 119 -- 126  A Length:   8
+         segment-Type: E Position:  13 Range: 127 -- 134  A Length:   8
+         segment-Type: H Position:  15 Range: 141 -- 154  A Length:  14
+         segment-Type: E Position:  16 Range: 158 -- 163  A Length:   6
+         segment-Type: E Position:  22 Range: 197 -- 205  A Length:   9
+         MOTIF:
+         segment-Type: E Position:   1 Range:   6 --  14  A Length:   9
+         segment-Type: E Position:   2 Range:  15 --  23  A Length:   9
+         segment-Type: H Position:   4 Range:  33 --  46  A Length:  14
+         segment-Type: E Position:   5 Range:  58 --  63  A Length:   6
+         segment-Type: E Position:  11 Range: 107 -- 115  A Length:   9
+         END 
+   
+   
+7. Step g:   generate molscript input files.
+   One small script can be downloaded from ftp://iole.swmed.edu/pub/ProSMoS/scripts/generatemolscript/molin3.pl
+   This script may be useful for genenerate high quality ribbon diagram by molscript.
+   
+   How to use it:
+   molin3.pl yourpdb.
+   
+   this will generate a .in file for molscript.  molscript and gvim editor will be opened at same time
+   you can look the ribbon diagram in molscript and revise the setting of .in file in gvim. 
+   
+   I wish this will be useful for making perfect picture for publication.
+   
+   This script is very easy , you can specify the setting by yourself.
+   
+
+8.  Based on the user's feedback , we provide a script for computing the first approximation to a meta-matrix
+    for a given PDB. This approximation should be further edited to remove some SSEs, to modify some interactions
+    , or to introduce other desired changes. Note: For best results, query meta-matrix should be carefully constructed
+    by user. This script is just to simplify this process to help the users to design their query matrix.
+    
+    directory: /scripts/fetchmatrix/
+    
+    scripts list:
+    
+    1. formatmatrix.pl: format single generatematrix output to friendly readable format.
+    2. fetchmatrix.pl:  input is the output of formatmatrix.pl and output is the matrix with list of SSEs, sheetinfo
+                        and handnedness of each triple element.
+    
+    How to use it:
+    
+    there are two different way to use this script:
+    
+    1. the easy way:
+       1.1). we provided precomuted formatted matrix (in this directory, transgenmatrixall.tar.gz)
+          gzip -d transgenmatrixall.tar.gz
+          tar -cvf trangenmatrixall
+          this step will produce a directory which contains all the formatted metamatrix for each pdb
+          (38156 formatted mematrix for pdb structures).
+          (each filename: pdbid.mx).
+       1.2). fetchmatrix.pl pdbid.mx outputfilename   
+           for example : fetchmatrix.pl ./transgenmatrix/1jxa.mx 1jxa.list
+           In output, we generate: list of SSEs, interaction matrix, sheetinfo, handedness for each chain and also
+           we generate info based on allchain in case that you want to define query matrix whose elements coming from
+           different chains.
+           
+           list of SSE format: SSE index,chain and type, SSE range; 
+                               for example:1    EA    1 --   8 
+           interaction matri format:  SSE index + triangle matrix; 
+                               for example:1    *vv---ut--uv----uuv-tu-uv-----------------------------------
+                               
+           sheetinfo format:   sheet index, SSEs in this sheet (SSEs is represented by SSE index): sheet1    1 2 6 7 10
+                               for example:1    EA    1 --   8                       
+           handedness info:    firstSSEindex secondSSEindex2 thirdSSEindex, handedness (L left, R right, N no handedness)
+                               for example:handedness	1 2 3 L
+                               
+           Note: the SSE index is made for each chain.
+                 for allchain, SSE index is made cross all chains;                    
+   2). another way:
+   
+         2.1) get a pssd file by using service: http://prodata.swmed.edu/palsse/palsse.php  
+             ( or install PALSSE programs and run it locally)
+             
+         2.2)download or copy the pssd file into your directory (for example ss-vector)
+         
+         2.3)run generateMatrix -os pdbid.ssd ../ss-vector/ ./singlepdb
+             for example:
+             generateMatrix -os 1jxa.ssd ../ss-vector/ ./1jxa.genmatrix
+             Here,generateMatrix is the program in Step b
+             
+         2.4) run formatmatrix.pl formatmatrix.pl  outputfromgeneratematrix resultfilename
+             for example:  formatmatrix.pl 1jxa.genmatrix 1jxa.mx
+             
+         2.5). run fetchmatrix.pl outpurfromformatrix resutlfilename
+             for example:  fetchmatrix.pl 1jxa.mx 1jxa.list    
+             
+             
+   Note: in this scirpt directory:  1jxa.ssd ( pssd file generated by PALSSE)          
+                                    1jxa.genmatrix ( metamatrix generated by generateMatrix)
+                                    1jxa.mx   (formatted mematrix for 1jxa).
+                                    1jxa.list (file contains the SSEs list, sheet info, interaction matrix and handedness)
+         Those files are examples.                           
+                                    
+9. Example:
+   
+   example for B-grasp structure pattern search can be downloaded from  ftp://iole.swmed.edu/pub/ProSMoS/example
+   
+   query.txt   is the query matrix for B-grasp structure pattern.
+   
+   pdbhitslist is the pdbhitslist for B-grasp pattern search. 
+   pdbhits.tar  is the output result of searchmatrix program. 
+                you can tar -xvf pdbhits.tar , it will generate a directory that contains all the pdb hits 
+                for B-grasp pattern search
+                
+   testlog.tar.gz  is the insightII log file and pdb for B-grasp pattern search.
+                   you can gzip -d testlog.tar.gz
+                   tar -xvf testlog.tar
+                   it will generate a directory testlog
+                
+   fold1.71.tar    is the mapscop result based on scop 1.71 on fold level.
+   super1.71.tar   is the mapscop result based on scop 1.71 on superfamily level.
+   
+                   you can tar -xvf fold1.71.tar (super1.71.tar) to see the results.
+                       
+                                      
+
+contact information:  shuoyong.shi@UTsouthwestern.edu.
+
+GOOD LUCK for your research.   
+   
+
+Reference:
+1.Majumdar, I., Krishna, S.S. and Grishin, N.V. (2005) 
+  PALSSE: a program to delineate linear secondary structural elements from protein structures,
+  BMC bioinformatics, 6, 202.

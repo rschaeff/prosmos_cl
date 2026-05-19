@@ -1,0 +1,66 @@
+!the strands
+set planecolour rgb 0.972549 0.972549 1.0;
+set plane2colour rgb 0.486275 0.486275 0.5;
+set strandwidth 1.8;
+set strandthickness 0.4;
+
+!the helices
+set planecolour rgb 0.972549 0.972549 1.0;
+set plane2colour rgb 0.486275 0.486275 0.5;
+set helixwidth 1.9;
+
+!the coils
+set planecolour rgb 0.65 0.85 0.65;
+set smoothsteps 10;
+
+!colour ss from blue via green to red
+!by b-factor from 0.3 to 1.8;
+
+!set colourparts on;
+!set planecolour rgb 0.2 0.2 0.2;
+!set atomradius atom * 1.0;
+!set linewidth 1.0;
+!set planecolour rgb 1.0 1.0 1.0;
+!set atomcolour atom * rgb 1.0 0.5 0.0;
+!  cpk in residue 502;
+!  cpk in residue 503;
+
+!!lines(bonds) presentation for cofactors
+!set planecolour rgb 1.0 0.5 0.0;
+!set planecolour rgb 1.0 1.0 1.0;
+!set linecolour rgb 1.0 1.0 1.0;
+!set stickradius 0.2;
+!set atomradius atom * 0.3;
+!!set linecolour rgb 1.0 0.6 0.0;
+!set linecolour rgb 1.0 0.2 0.2;
+!set linewidth 4.0;
+!  bonds in residue 102;
+
+!!ball-and-stick for side-chains
+!set linewidth 1.5;
+!set planecolour rgb 1.0 1.0 1.0;
+!set linecolour rgb 0.0 0.0 0.0;
+!set atomradius atom * 1.2;
+!set atomcolour atom O* rgb 1.0 0.2 0.2;
+!set atomcolour atom C* rgb 0.3 0.3 0.3;
+!set atomcolour atom N* rgb 0.3 0.5 1.0;
+!set atomcolour atom S* rgb 1.0 1.0 0.0;
+!set atomcolour atom P* rgb 1.0 1.0 1.0;
+
+!ball-and-stick require
+!not either atom H*, atom C, atom N, atom P or atom O
+!and in either
+!        residue A396,
+!        residue A401,
+!        residue A484,
+!or      residue A518;
+
+!! connect 2 breaking points
+!set linecolour rgb 0.54 0.59 0.67;
+!set linedash 6.0;
+!set linewidth 7.0;
+!  line position res-atom A333 CA 
+!	   to position res-atom A370 CA;
+!  !line position in residue A333 to position in residue A370;
+
+end_plot

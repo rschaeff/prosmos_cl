@@ -1,0 +1,9 @@
+1 2 3 4 5
+E E H E E
+* t C - c
+  * T - -
+    * x C
+      * t
+        *
+handedness   2   3  4   R
+length 3 H 8 1000

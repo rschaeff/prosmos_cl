@@ -1,0 +1,4 @@
+generateMatrix/build/
+searchMatrix/build/
+*.o
+*.log
