@@ -4,24 +4,41 @@ Paper Methods, "In our model of SSP generation, we combine two smaller
 skeletons to obtain a larger one." S_n is grown from pairs (S_p, S_q) with
 p + q = n; deduplication is via lattice symmetry and mirror-image pairing.
 
-Currently implemented:
-  - S1 (a single lattice point)
-  - S2 (a seed pair: two adjacent points)
-  - S3 *planar*: the 4 base spatial-sequence arrangements (`enumerate_s3_planar`)
-  - S3 *full*: 11 SSPs (`enumerate_s3`) matching CG-2012's S3/Stru.txt count,
-    obtained by crossing each base shape with chirality {None, L, R}, with the
-    constraint that closed-cycle shapes (Triangle) admit only chiral variants.
+Two enumeration paths live here:
+
+  enumerate_dim(n)     - dimension dispatcher used by the existing test
+                         suite. For n ∈ {1, 2, 3} it returns the same
+                         results as before. (S3 still goes through the
+                         hand-written `enumerate_s3_planar` + chirality
+                         pipeline that yields 11 SSPs.)
+
+  enumerate_skeletons(n) - new combine-pairs growth route. Returns
+                         labeled skeletons (no chirality) by iteratively
+                         growing from S_{n-1} via single-node addition.
+                         Phase A scope: |s2| = 1 only. Phase B will add
+                         multi-node combine (S4 = S2 + S2, S5 = S3 + S2).
+
+Implemented:
+  - S1, S2 (canonical seeds)
+  - S3 *planar*: 4 base spatial-sequence arrangements (`enumerate_s3_planar`)
+  - S3 *full*: 11 SSPs (`enumerate_s3`) matching CG-2012/S3/Stru.txt, with
+    chirality {None, L, R} crossed with each base shape (Triangle chiral-only)
+  - `enumerate_skeletons(n)`: single-node-combine growth from cached
+    S_{n-1}; deduped by `combine.canonical_key`
 
 Out of scope here:
-  - General S_n for n >= 4 (needs full combine + canonical-form)
+  - Multi-node combine (S4 = S2 + S2, S5 = S3 + S2)
+  - RCC tie-breaking on equivalent skeletons (paper Appendix § RCC)
+  - Handedness-based equivalence (paper Appendix § "if their handedness
+    is same in s1 and s2, then s1 and s2 are equivalent")
   - SSE-type assignment (H/E) and interaction-type assignment
-  - SCC-2 (Appendix Fig. S2d) — kicks in for n >= 5
 """
 
 from __future__ import annotations
 
 from typing import Iterator
 
+from .combine import canonical_key, combine_with_single_node
 from .compactness import is_compact
 from .lattice import LatticePoint
 from .skeleton import Skeleton
@@ -151,13 +168,44 @@ def enumerate_s3() -> Iterator[Skeleton]:
         yield Skeleton(points=skel.points, chirality="R")
 
 
+_SEED_S1 = Skeleton(points=(LatticePoint(0, 0, 0),))
+_SEED_S2 = Skeleton(points=(LatticePoint(0, 0, 0), LatticePoint(1, 0, 0)))
+
+
+def enumerate_skeletons(n: int) -> list[Skeleton]:
+    """Labeled skeletons at dimension `n` via combine-pairs growth (single-node).
+
+    Phase A: |s2| = 1 only — Sn is grown from S_{n-1} by adding one
+    node. Returns a deduplicated list (by `canonical_key`) of compact
+    skeletons (PCC ∧ SCC-1 ∧ SCC-2 all satisfied).
+
+    Phase B (pending) will add multi-node combine, which is needed for
+    full coverage of S4 (S2 + S2 produces skeletons unreachable by
+    single-node growth) and S5 (S3 + S2 likewise).
+    """
+    if n == 1:
+        return [_SEED_S1]
+    if n == 2:
+        return [_SEED_S2]
+    prev = enumerate_skeletons(n - 1)
+    seen: dict[tuple, Skeleton] = {}
+    for s1 in prev:
+        for candidate in combine_with_single_node(s1):
+            if not is_compact(candidate):
+                continue
+            key = canonical_key(candidate)
+            if key not in seen:
+                seen[key] = candidate
+    return list(seen.values())
+
+
 def enumerate_dim(n: int) -> Iterator[Skeleton]:
     """Top-level: dispatch to dimension-specific generators where implemented."""
     if n == 1:
-        yield Skeleton(points=(LatticePoint(0, 0, 0),))
+        yield _SEED_S1
         return
     if n == 2:
-        yield Skeleton(points=(LatticePoint(0, 0, 0), LatticePoint(1, 0, 0)))
+        yield _SEED_S2
         return
     if n == 3:
         yield from enumerate_s3()
