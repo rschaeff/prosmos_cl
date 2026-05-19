@@ -108,7 +108,40 @@ was restored from archive in May 2026 and lives on the leda fileserver.
 
 ## Status
 
-Scaffolding only. None of the algorithm is implemented yet.
-Next step: load the CG-2012 IA.txt files into `oracle.py` and write the
-parametric counts test in `tests/test_oracle.py` so we have a green
-validation harness ready before we write a single lattice line.
+Validation harness + S3 planar enumeration land green:
+
+```
+tests/test_oracle.py     ✓ 4 passed   (S4=203, S5=2807, first record, 5-141-7-7 design target)
+tests/test_enumerate.py  ✓ 4 passed   (S1=1, S2=1, S3 planar count=4, S3 topology shapes)
+```
+
+Implemented:
+- `oracle.py` — IA.txt parser, yields SSPRecord stream
+- `lattice.py` — hex axial coords + neighbor enumeration (in-plane + cross-layer)
+- `skeleton.py` — ordered LatticePoint tuple + adjacency matrix
+- `compactness.py` — PCC and SCC-1 from Appendix Fig. S2c
+- `enumerate.py` — dimension dispatcher + S3 planar enumeration
+
+S3 planar produces the 4 base spatial-sequence patterns from CG-2012's
+S3/Stru.txt:
+
+| Adjacency (1-2, 1-3, 2-3) | Name | CG-2012 panels |
+|---|---|---|
+| (T, F, T) | Linear   | 3-0, 3-5(L), 3-6(R) |
+| (T, T, T) | Triangle | 3-1(L), 3-2(R)      |
+| (F, T, T) | Bent-A   | 3-3, 3-7(L), 3-8(R) |
+| (T, T, F) | Bent-B   | 3-4, 3-9(R), 3-10(L)|
+
+11 total S3 SSPs in CG-2012 = 4 base shapes × handedness variants.
+Our planar (Z=0) enumeration covers the 4 base shapes; handedness
+extension via Z-displacement (Z ∈ {-1, +1}) is the next milestone.
+
+Next:
+1. Handedness extension — generalize `_canonical_planar_s3` / the
+   enumeration loop to walk the full Z-axis and dedupe under the
+   lattice symmetry group including layer-flip. Target: S3 count = 11.
+2. SCC-2 (Appendix Fig. S2d / S3 whitelist) — needed before S5 in earnest.
+3. General `enumerate_dim(n)` via combine-pairs growth (paper Methods).
+4. SSE-type and interaction-type assignment to grow skeletons into
+   full SSPs (we currently only emit skeletons).
+5. ProSMoS-format writer (`prosmos.py`) — depends on (4).
