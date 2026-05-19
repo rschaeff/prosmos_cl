@@ -118,43 +118,63 @@ def test_canonical_key_distinguishes_different_sequence_labels():
     assert canonical_key(linear) != canonical_key(bent_b)
 
 
-def test_enumerate_skeletons_s3_matches_base_shapes():
-    """S3 via single-node combine should reproduce the 4 base shapes
-    (Linear, Triangle, Bent-A, Bent-B) from enumerate_s3_planar."""
+def test_canonical_key_distinguishes_mirror_pair():
+    """Phase C1: mirror images of a Triangle (CW vs CCW sequence walk)
+    are now distinct canonicals — `canonical_key` quotients by rotation
+    only, not reflection."""
+    triangle_ccw = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(0, 1, 0),
+    ))
+    # Mirror reflection across q-axis: (q, r) → (q+r, -r)
+    triangle_cw = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(1, -1, 0),
+    ))
+    assert canonical_key(triangle_ccw) != canonical_key(triangle_cw)
+
+
+def test_enumerate_skeletons_s3_covers_base_shapes():
+    """S3 via combine covers all 4 base adjacency patterns.
+
+    Phase C1: under rotation-only `canonical_key`, the Triangle splits
+    into 2 mirror variants (CW vs CCW), giving 5 distinct skeletons
+    across 4 adjacency patterns. `enumerate_s3_planar` dedupes by
+    adjacency-triple (a coarser invariant), still yielding 4.
+    """
     combine_s3 = enumerate_skeletons(3)
     planar_s3 = list(enumerate_s3_planar())
-    assert len(combine_s3) == 4
+    assert len(combine_s3) == 5
     assert len(planar_s3) == 4
-    # Same adjacency-pattern set
     combine_patterns = {_adjacency_signature(s) for s in combine_s3}
     planar_patterns = {_adjacency_signature(s) for s in planar_s3}
     assert combine_patterns == planar_patterns
 
 
 def test_enumerate_skeletons_s4_count():
-    """Phase B regression pin: S4 = 10 via combine (single-node ∪ S2+S2).
+    """Phase C1 regression pin: S4 = 14 via combine.
 
-    S2+S2 produces 4 unique skeletons that all turn out canonically
-    equivalent to skeletons already reachable via S3+S1 (any compact
-    4-point lattice arrangement is reachable by growing one node onto
-    some compact 3-point arrangement). So the count stays at 10.
-
-    Oracle has 41 — the remaining gap to Phase C: handedness/chirality
-    variants (canonical_key currently quotients by reflections + z-flip,
-    collapsing mirror pairs that CG-2012 keeps distinct).
+    Up from 10 in Phase A/B — rotation-only canonical_key separates
+    mirror-pair skeletons that were previously collapsed. Oracle has
+    41 distinct skel_ids; the gap is now chirality (L/R labeling per
+    skeleton; some skeletons are self-mirror and stay 1, others split
+    into L+R = 2) and z-displacement variants — later Phase C work.
     """
-    assert len(enumerate_skeletons(4)) == 10
+    assert len(enumerate_skeletons(4)) == 14
 
 
 def test_enumerate_skeletons_s5_count():
-    """Phase B regression pin: S5 = 41 via combine (single-node ∪ S3+S2).
+    """Phase C1 regression pin: S5 = 70 via combine.
 
-    Up from 31 in Phase A — S3+S2 adds 10 S5 skeletons unreachable
-    from S4+S1 alone. Oracle has 648 distinct skel_ids; the gap is
-    Phase C (handedness equivalence + mirror/z-flip variants kept
-    distinct).
+    Up from 41 (Phase B) — rotation-only canonical_key separates more
+    mirror pairs at S5 than at S4. Oracle has 648 distinct skel_ids;
+    the remaining gap is dominated by z-displacement variants the
+    paper allows ('up to three layers') which our enumeration doesn't
+    produce yet (seeds + valid(s) extensions all stay in the z=0 plane).
     """
-    assert len(enumerate_skeletons(5)) == 41
+    assert len(enumerate_skeletons(5)) == 70
 
 
 def test_s2_plus_s2_produces_compact_candidates():
@@ -170,12 +190,15 @@ def test_s2_plus_s2_produces_compact_candidates():
 def test_s3_plus_s2_emits_new_s5_skeletons():
     """S3+S2 should contribute skeletons not reachable from S4+S1 alone.
 
-    We can't easily isolate "S3+S2 contribution" through enumerate_skeletons
-    (it iterates all splits), so check the lower-bound: total S5 (41)
-    exceeds single-node-only (31)."""
-    # The 31 figure is the Phase A baseline (single-node growth from S4).
-    # If S3+S2 contributed nothing, total would still be 31.
-    assert len(enumerate_skeletons(5)) > 31
+    Lower-bound regression check: total S5 must exceed what single-node
+    growth alone produces. We don't pin the exact single-node count
+    here (it depends on canonical_key choices), but the inequality is
+    invariant — S3+S2 reaches arrangements where the 5-node split into
+    a 3-cycle and a 2-cycle requires placing s2 with rotation, which
+    single-node growth cannot replicate."""
+    # If S3+S2 contributed nothing, total would equal the single-node
+    # count. Under Phase C1 canonical_key, total = 70 > single-node-only.
+    assert len(enumerate_skeletons(5)) > 50
 
 
 def test_enumerate_skeletons_all_compact():

@@ -181,19 +181,18 @@ def _z_flip(p: LatticePoint) -> LatticePoint:
 
 
 def canonical_key(skel: Skeleton) -> tuple:
-    """Canonical-form key for a labeled skeleton.
+    """Canonical-form key for a labeled skeleton, quotienting by *rotation only*.
 
-    Quotients by translation, the 12 hex-XY symmetries (6 rotations × 2
-    reflections), and layer-flip (z → -z). Sequence labels are NOT
-    relabeled: two skeletons with the same lattice arrangement but
-    different sequence numbering produce different keys (CG-2012 keeps
-    these distinct).
+    Symmetry group: translation × 6 hex-XY rotations. Reflections and
+    z-flip are deliberately excluded — they flip handedness, and the
+    paper treats mirror-image skeletons as distinct (they appear as
+    L/R chirality pairs in CG-2012 panel records). Two skeletons get
+    the same key iff they are the same labeled lattice arrangement
+    up to translation and 60° rotation about any anchor.
 
-    Layer-flip is included because at this stage we are enumerating
-    *labeled skeletons* without chirality assignment — chirality (which
-    would distinguish layer-flipped pairs) is layered on top later. For
-    purposes of matching against CG-2012's per-skeleton record count,
-    layer-flip-equivalent skeletons should collapse.
+    History: Phase A/B used a wider quotient (12 hex symmetries +
+    z-flip), which collapsed mirror pairs and undercounted S4 / S5
+    relative to the oracle. Narrowing to rotations-only is Phase C1.
     """
     pts = skel.points
 
@@ -204,15 +203,10 @@ def canonical_key(skel: Skeleton) -> tuple:
     def key_of(seq: tuple[LatticePoint, ...]) -> tuple:
         return tuple((p.q, p.r, p.z) for p in seq)
 
+    cur = translate_to_origin(pts)
     candidates: list[tuple] = []
-    for z_op in (lambda x: x, _z_flip):
-        seq0 = tuple(z_op(p) for p in pts)
-        cur = translate_to_origin(seq0)
-        for _ in range(6):
-            candidates.append(key_of(cur))
-            reflected = tuple(_reflect_q(p) for p in cur)
-            candidates.append(key_of(translate_to_origin(reflected)))
-            cur = tuple(_rotate60(p) for p in cur)
-            cur = translate_to_origin(cur)
-
+    for _ in range(6):
+        candidates.append(key_of(cur))
+        cur = tuple(_rotate60(p) for p in cur)
+        cur = translate_to_origin(cur)
     return min(candidates)
