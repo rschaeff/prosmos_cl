@@ -219,19 +219,43 @@ variants the paper allows ("up to three layers") which our
 enumeration doesn't yet produce — seeds + valid(s) extensions all
 stay in the z=0 plane.
 
+**Phase C3 attempt: reverted.** Sequence-reversal + start_up-flip
+collapses Bent-A/Bent-B (sequence reversals of each other) and CW/CCW
+triangle mirrors — both kept distinct by CG-2012 and the paper.
+Per paper Appendix §1.1.2, handedness is the scalar triple product
+`(p × q) · r`, which is sign-sensitive to argument order; sequence
+reversal flips every triple's handedness sign, so it's not a valid
+quotient under the paper's label-by-label equivalence definition.
+
+**Phase C4 investigation: handedness_signature utility added; no
+canonical_key change.** Paper §1.1.2 defines equivalence as
+label-by-label matching handedness signatures. Empirically this
+over-collapses against the oracle:
+
+| Dim | enum_skeletons (rotation + start_up) | pure handedness eq | oracle |
+|----:|---:|---:|---:|
+| 3 | 10 | 3 | 11 |
+| 4 | 84 | 23 | 41 |
+| 5 | 396 | 193 | 648 |
+
+CG-2012's oracle counts per-labeling without applying the paper's
+handedness equivalence rule. Our current canonical (rotation + start_up
++ chirality) sits closer to oracle behavior than pure handedness would.
+`handedness_signature(skel)` is retained as a utility — it'll be
+load-bearing once SSE-type assignment + ProSMoS query writing land.
+
 Next:
-1. **Phase C3: sequence-reversal + start_up-flip dedup**. A skeleton
-   walked in reverse with orientations flipped is the same physical
-   object. Currently kept distinct → S4 overshoots oracle 2x. Adding
-   this symmetry to `canonical_key` should bring S4 from 84 → ~42 and
-   S5 from 396 → ~200, then layered orientation chirality gets us
-   closer to the oracle's 648 once we figure out the remaining gap.
-2. **Handedness-based equivalence** (paper Appendix §1.1: (p × q) · r
-   with node z=±1 based on orientation). Needed for the full canonical
-   dedup matching CG-2012. Phase C4.
-3. **RCC tie-breaking** on equivalent skeletons (pair-wise distance
-   sum, then unique-y). Picks canonical representative among
-   equivalent. Phase C5.
-4. SSE-type (H/E) and interaction-type assignment to grow
-   skeletons into full SSPs. Post-Phase-C.
-5. ProSMoS-format writer (`prosmos.py`) — depends on (4).
+1. **Decide whether to revert Phase C2's start_up doubling**. Pre-C2,
+   S4=42 matched oracle 41 almost exactly; post-C2 we overshoot to 84.
+   The paper says UP-start and DOWN-start give distinct linker planes
+   (so distinct SSPs), but oracle treats them as one. Reverting C2
+   would tighten S4 match at the cost of throwing away orientation info
+   that's needed downstream.
+2. **Investigate the S5 oracle gap directly** — sample specific oracle
+   S5 records, compare against our enumeration, find what we're
+   missing structurally (lattice variants? labeling conventions?).
+3. **RCC tie-breaking** (paper Appendix §1.2: pair-wise distance sum,
+   then unique-y). Picks canonical representative among equivalent.
+   Useful once we settle on the right equivalence.
+4. SSE-type (H/E) and interaction-type assignment.
+5. ProSMoS-format writer (`prosmos.py`).

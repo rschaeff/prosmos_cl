@@ -11,6 +11,7 @@ from ssp_enum.combine import (
     canonical_key,
     combine_two_skeletons,
     combine_with_single_node,
+    handedness_signature,
     valid_extension_points,
 )
 from ssp_enum.compactness import is_compact
@@ -155,6 +156,59 @@ def test_orientations_alternate_from_start_up():
     assert s.orientations == (True, False, True, False)
     s2 = Skeleton(points=s.points, start_up=False)
     assert s2.orientations == (False, True, False, True)
+
+
+def test_handedness_signature_collinear_zero():
+    """Per paper Appendix § 'all collinear points: None handedness'.
+
+    For 3 lattice-collinear points (xy-collinear), the scalar triple
+    product (p × q) · r evaluates to 0 regardless of orientation, so
+    handedness = (0,).
+    """
+    s = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(2, 0, 0),
+    ))
+    sig = handedness_signature(s)
+    assert sig == (0,), sig
+
+
+def test_handedness_signature_triangle_chirality():
+    """A CCW and CW Triangle (mirror pair) have opposite-sign
+    handedness signatures."""
+    ccw = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(0, 1, 0),
+    ))
+    cw = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(1, -1, 0),
+    ))
+    s_ccw = handedness_signature(ccw)
+    s_cw = handedness_signature(cw)
+    assert s_ccw == (-s_cw[0],), (s_ccw, s_cw)
+    assert s_ccw != (0,)  # non-collinear → non-zero
+
+
+def test_handedness_signature_orientation_dependence():
+    """A non-collinear triple gets opposite handedness when all SSE
+    orientations flip (start_up → not start_up flips every z=±1, which
+    negates the scalar triple product)."""
+    up = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(0, 1, 0),
+    ), start_up=True)
+    down = Skeleton(points=up.points, start_up=False)
+    s_up = handedness_signature(up)
+    s_down = handedness_signature(down)
+    # Negating all node z's flips the triple-product sign for triples
+    # where the z dimension contributes; for purely planar (z=0) skels
+    # this wouldn't matter, but our nodes have z=±1 from orientation.
+    assert s_up != s_down, (s_up, s_down)
 
 
 def test_enumerate_skeletons_s3_covers_base_shapes():

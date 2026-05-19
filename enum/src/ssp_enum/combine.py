@@ -180,6 +180,56 @@ def _z_flip(p: LatticePoint) -> LatticePoint:
     return LatticePoint(p.q, p.r, -p.z)
 
 
+def _axial_to_euclidean(p: LatticePoint) -> tuple[float, float]:
+    """Convert axial hex coords to Euclidean xy."""
+    return (p.q + p.r * 0.5, p.r * 0.8660254037844386)  # sqrt(3)/2
+
+
+def handedness_signature(skel: Skeleton) -> tuple[int, ...]:
+    """Per-triple handedness signature, paper Appendix §1.1.2.
+
+    Handedness of triple (i, j, k) = sign((p_i × p_j) · p_k) where
+    each p_i is the 3D node vector (Euclidean xy from axial coords,
+    z = +1 if orientations[i] else -1). The orientations alternate
+    along the sequence starting from `skel.start_up`.
+
+    Returns an integer sign in {-1, 0, +1} for each triple i<j<k,
+    flattened in lexicographic order of (i, j, k). Length = C(n, 3).
+
+    Per paper: two skeletons with the same handedness signature
+    (label-by-label, same `(i,j,k)` triples) are equivalent. So this
+    is the natural canonical-form invariant — finer than rotation
+    equivalence (rotations preserve the signature) but coarser than
+    full positional identity (different lattice arrangements with the
+    same signature collapse).
+    """
+    n = skel.dim
+    orientations = skel.orientations
+    vecs = []
+    for i in range(n):
+        x, y = _axial_to_euclidean(skel.points[i])
+        z = 1.0 if orientations[i] else -1.0
+        vecs.append((x, y, z))
+    out: list[int] = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            for k in range(j + 1, n):
+                px, py, pz = vecs[i]
+                qx, qy, qz = vecs[j]
+                rx, ry, rz = vecs[k]
+                cx = py * qz - pz * qy
+                cy = pz * qx - px * qz
+                cz = px * qy - py * qx
+                t = cx * rx + cy * ry + cz * rz
+                if abs(t) < 1e-9:
+                    out.append(0)
+                elif t > 0:
+                    out.append(1)
+                else:
+                    out.append(-1)
+    return tuple(out)
+
+
 def canonical_key(skel: Skeleton) -> tuple:
     """Canonical-form key for a labeled skeleton.
 
@@ -200,6 +250,18 @@ def canonical_key(skel: Skeleton) -> tuple:
     equivalence definition it's not a valid quotient. Empirically
     it also collapsed Bent-A/Bent-B (which are sequence-reversals
     but enumerated separately by CG-2012) and CW/CCW triangle mirrors.
+
+    Phase C4 investigation: using `handedness_signature` as the
+    canonical key (paper's stated equivalence definition) over-
+    collapses relative to CG-2012's oracle. S3 has only one triple
+    (max 3 distinct signatures, including the "0" collinear case),
+    but oracle has 11 S3 panels. Empirically: handedness-only gives
+    S4=23 / S5=193, way below oracle 41 / 648; current canonical
+    gives S4=84 (over) / S5=396 (under). Conclusion: CG-2012 enumerates
+    per-labeling without applying the paper's handedness-equivalence
+    rule, so our rotation-only canonical is closer to oracle behavior
+    than handedness-equivalence would be. `handedness_signature` is
+    retained as a utility for downstream chirality assignment.
 
     History:
       Phase A/B: 12 hex symmetries + z-flip (too coarse — collapsed
