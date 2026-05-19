@@ -179,11 +179,14 @@ def test_enumerate_skeletons_s4_count():
     """Phase C2 regression pin: S4 = 84 via combine (oracle: 41).
 
     Double the 42 from Phase C-S4 once `start_up` is part of the
-    canonical key. We now overshoot the oracle (84 > 41) because
-    we count both UP-start and DOWN-start as distinct, while the
-    oracle pre-dedupes pairs that are sequence-reversal-symmetric
-    (paper §1.1 RCC dedup). Closing the overshoot is Phase C3
-    territory (RCC + handedness equivalence).
+    canonical key. We overshoot the oracle (84 > 41) — the remaining
+    gap is the proper handedness equivalence (paper §1.1: label-by-
+    label triple-handedness match) + RCC, which would dedupe some of
+    these as equivalent.
+
+    Phase C3 attempt (sequence-reversal + start_up-flip dedup) was
+    reverted: it over-collapsed Bent-A/Bent-B and CW/CCW mirror
+    triangles, neither of which the paper treats as equivalent.
     """
     assert len(enumerate_skeletons(4)) == 84
 
@@ -191,10 +194,10 @@ def test_enumerate_skeletons_s4_count():
 def test_enumerate_skeletons_s5_count():
     """Phase C2 regression pin: S5 = 396 via combine (oracle: 648).
 
-    Double the 198 from Phase C-S5 once `start_up` lands in the
-    canonical key. Narrows the gap to oracle from 3.3x to 1.6x.
+    Double the 198 from Phase C-S5 once `start_up` is part of the
+    canonical key. Narrows the gap to oracle from 3.3x to 1.64x.
     The remaining factor likely needs:
-      - additional (f) lattice variants we haven't enumerated yet
+      - additional (f) lattice variants we don't reach via combine
       - or chirality-distinct combine paths the current canonical_key
         rotation-only quotient still collapses
     """

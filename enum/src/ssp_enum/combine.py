@@ -181,23 +181,31 @@ def _z_flip(p: LatticePoint) -> LatticePoint:
 
 
 def canonical_key(skel: Skeleton) -> tuple:
-    """Canonical-form key for a labeled skeleton, quotienting by *rotation only*.
+    """Canonical-form key for a labeled skeleton.
 
-    Symmetry group: translation × 6 hex-XY rotations. Reflections and
-    z-flip are deliberately excluded — they flip handedness, and the
-    paper treats mirror-image skeletons as distinct (they appear as
-    L/R chirality pairs in CG-2012 panel records). Two skeletons get
-    the same key iff they are the same labeled lattice arrangement
-    up to translation and 60° rotation about any anchor.
+    Symmetry group: translation × 6 hex-XY rotations.
 
-    History: Phase A/B used a wider quotient (12 hex symmetries +
-    z-flip), which collapsed mirror pairs and undercounted S4 / S5
-    relative to the oracle. Narrowing to rotations-only was Phase C1.
+    Reflections and z-flip are deliberately excluded — they flip
+    handedness, and the paper treats mirror-image skeletons as
+    distinct (they appear as L/R chirality pairs in CG-2012 panel
+    records). Two skeletons get the same key iff they are the same
+    labeled lattice arrangement up to translation and 60° rotation
+    about any anchor, with the same `start_up` orientation and
+    `chirality`.
 
-    Phase C2 extends the key with the skeleton's `start_up`
-    orientation flag — UP-start and DOWN-start give distinct
-    linker-plane assignments (paper Appendix §1.1) and are
-    therefore distinct SSPs.
+    Phase C3 attempt (sequence-reversal + start_up-flip) was reverted:
+    sequence-reversal flips handedness signs of every labeled triple
+    (paper Appendix §1.1: handedness = (p×q)·r is sign-sensitive to
+    the order of arguments), so per the paper's strict label-by-label
+    equivalence definition it's not a valid quotient. Empirically
+    it also collapsed Bent-A/Bent-B (which are sequence-reversals
+    but enumerated separately by CG-2012) and CW/CCW triangle mirrors.
+
+    History:
+      Phase A/B: 12 hex symmetries + z-flip (too coarse — collapsed
+                 mirror pairs CG-2012 keeps distinct).
+      Phase C1: rotation-only (translation × 6 rotations).
+      Phase C2: + start_up flag in the key.
     """
     pts = skel.points
 
