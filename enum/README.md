@@ -108,19 +108,24 @@ was restored from archive in May 2026 and lives on the leda fileserver.
 
 ## Status
 
-Validation harness + S3 full enumeration (planar + chiral) land green:
+S3 full enumeration + SCC-2 whitelist land green (18 tests pass):
 
 ```
-tests/test_oracle.py     ✓ 4 passed   (S4=203, S5=2807, first record, 5-141-7-7 design target)
+tests/test_oracle.py     ✓ 4 passed   (S4=203, S5=2807, first record, 5-141-7-7 target)
 tests/test_enumerate.py  ✓ 7 passed   (S1=1, S2=1, S3 planar=4, S3 topologies,
                                        S3 full=11, chirality breakdown, per-shape)
+tests/test_grids.py      ✓ 7 passed   (whitelist sizes S3=2, S4=3, S5=4; every oracle
+                                       record's grid in whitelist; S3 enum passes SCC-2;
+                                       off-whitelist arrangement rejected)
 ```
 
 Implemented:
 - `oracle.py` — IA.txt parser, yields SSPRecord stream
 - `lattice.py` — hex axial coords + neighbor enumeration (in-plane + cross-layer)
 - `skeleton.py` — ordered LatticePoint tuple + adjacency matrix + chirality label
-- `compactness.py` — PCC and SCC-1 from Appendix Fig. S2c
+- `compactness.py` — PCC, SCC-1, and SCC-2 (Appendix Fig. S3 whitelist)
+- `grids.py` — unlabeled-adjacency-graph canonical form + per-dimension whitelists
+  (S3: 2 grids; S4: 3 grids; S5: 4 unique signatures, see g≡h note below)
 - `enumerate.py` — dimension dispatcher; `enumerate_s3_planar` (4 base shapes)
   and `enumerate_s3` (11 SSPs = planar + chiral)
 
@@ -144,9 +149,19 @@ and ProSMoS's `handedness i j k L|R` lines. The full Z-aware geometric
 realization (assigning concrete z ∈ {-1, 0, 1} per node) is deferred to
 SSE-type/direction assignment downstream.
 
+**SCC-2 / S5-grid note:** Appendix Fig. S3 lists 5 induced grids at S5
+(d–h), but the Appendix's per-grid handedness table says Grid 5 (S3-h)
+is "Same as Grid 4 (S3-g)" — g and h share an unlabeled adjacency
+graph but differ in lattice embedding (mirror pair). Our canonical
+form quotients to the adjacency graph, so we observe 4 distinct S5
+signatures, not 5. Every oracle SSP record's grid is in the whitelist,
+so SCC-2 accept/reject is identical to the paper's. The lattice-
+embedding chirality is captured separately by the chirality label
+introduced in `enumerate_s3()`.
+
 Next:
-1. SCC-2 (Appendix Fig. S2d / S3 whitelist) — needed before S5 in earnest.
-2. General `enumerate_dim(n)` via combine-pairs growth (paper Methods).
-3. SSE-type and interaction-type assignment to grow skeletons into
+1. General `enumerate_dim(n)` via combine-pairs growth (paper Appendix
+   pseudocode, §1.2). RCC tie-breaking on equivalent skeletons.
+2. SSE-type and interaction-type assignment to grow skeletons into
    full SSPs (we currently only emit skeletons).
-4. ProSMoS-format writer (`prosmos.py`) — depends on (3).
+3. ProSMoS-format writer (`prosmos.py`) — depends on (2).

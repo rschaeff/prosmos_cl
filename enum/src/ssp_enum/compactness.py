@@ -2,27 +2,32 @@
 
 Three criteria define compactness (paraphrased from the paper):
 
-  PCC ("perimeter compactness"): any lattice point that is *not* part of
+  PCC ("primary compactness"): any lattice point that is *not* part of
        the skeleton can have at most 3 adjacent points in the skeleton.
        Counterexample: Appendix Fig. S2c(ii) shows a trapezoid where an
        interior non-skeleton point has 4 skeleton neighbors — rejected.
 
-  SCC criterion-1 ("structural compactness"): when a new node is added,
-       it must either (a) extend an existing collinear set of two or more
-       points (a "line" through the lattice), or (b) sit at a lattice
-       position with at least two adjacent existing skeleton points.
-       Counterexamples: Appendix Fig. S2c(iii-iv) — new node has only
-       one neighbor and doesn't extend a collinear set.
+  SCC criterion-1 ("secondary compactness, criterion 1"): when a new
+       node is added, it must either (a) extend an existing collinear
+       set of two or more points (a "line" through the lattice), or (b)
+       sit at a lattice position with at least two adjacent existing
+       skeleton points. Counterexamples: Appendix Fig. S2c(iii-iv) —
+       new node has only one neighbor and doesn't extend a collinear set.
 
-  SCC criterion-2 ("specific eliminations"): for given N, certain
-       arrangements that satisfy PCC + SCC-1 are still rejected because
-       they're equivalent to a preferred arrangement under lattice
-       symmetry (Appendix Fig. S2d). The 2012 binary maintains an
-       explicit list of allowed grids (Appendix Fig. S3).
+  SCC criterion-2 ("secondary compactness, criterion 2"): the
+       candidate's induced grid must match one of a predefined set of
+       allowed grids for that dimension (Appendix Fig. S3). At S3, the
+       allowed grids are 3-collinear and equilateral triangle; at S4, 3
+       grids; at S5, 5 grids in the paper (4 under unlabeled-adjacency
+       canonicalization, since the Appendix's Grid 5 / Grid 4 (S3-h)
+       and Grid 4 (S3-g) share an unlabeled adjacency graph).
+       Counterexample: Appendix Fig. S2d(ii) passes PCC and SCC-1 but
+       has an off-whitelist induced grid → rejected.
 """
 
 from __future__ import annotations
 
+from .grids import is_in_whitelist
 from .lattice import LatticePoint
 from .skeleton import Skeleton
 
@@ -99,11 +104,24 @@ def passes_scc_1(skel: Skeleton) -> bool:
     return True
 
 
-def is_compact(skel: Skeleton) -> bool:
-    """Combined compactness predicate.
+def passes_scc_2(skel: Skeleton) -> bool:
+    """Secondary Compactness Criterion 2 (Appendix § "secondary compactness criterion" + Fig. S3).
 
-    Currently checks PCC and SCC-1 only. SCC-2 (Appendix Fig. S2d / S3
-    whitelist) is not yet implemented; for dimensions ≤ 3 the PCC+SCC-1
-    pair is sufficient — SCC-2 starts mattering at dim 5.
+    The skeleton's induced grid (the unlabeled set of lattice positions
+    it occupies) must be one of the allowed grids for its dimension.
+    The whitelist is held in `grids.WHITELIST` per dimension. At dim ≤ 2
+    the lattice arrangement is trivially unique; at dim ≥ 6 we don't
+    have a whitelist defined yet, so SCC-2 vacuously passes.
     """
-    return passes_pcc(skel) and passes_scc_1(skel)
+    return is_in_whitelist(skel)
+
+
+def is_compact(skel: Skeleton) -> bool:
+    """Combined compactness predicate: PCC ∧ SCC-1 ∧ SCC-2.
+
+    SCC-2 is a no-op below dim 3 and above the dimensions for which we
+    have a whitelist (currently 3, 4, 5). Behavior for dim 3 in our S3
+    enumeration is unchanged: every shape we produce (P3 or K3) is on
+    the S3 whitelist.
+    """
+    return passes_pcc(skel) and passes_scc_1(skel) and passes_scc_2(skel)
