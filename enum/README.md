@@ -1,0 +1,114 @@
+# SSP enumeration
+
+Fresh Python implementation of the super-secondary structure pattern (SSP)
+enumeration model from Chitturi B, Shi S, Kinch LN, Grishin NV.
+*Compact Structure Patterns in Proteins.* J Mol Biol 428(21):4392–4412 (2016).
+DOI [10.1016/j.jmb.2016.07.022](https://doi.org/10.1016/j.jmb.2016.07.022).
+
+## Why this exists
+
+Chalam Chitturi's 2012-vintage C# enumerator (`CompactGenerator2.exe`, recovered
+from his archived home directory) produces a 1472-SSP set at dimension 5;
+the published paper reports 1239. Running a decade-old `.exe` from a former
+lab member's archive as the input to new publishable work is not defensible —
+this package re-implements the enumeration in modern, readable, paper-traceable
+code so every decision can be tied back to a figure or paragraph in the paper.
+
+The 2012 binary is *not* a dependency. It is used only as an **output oracle**:
+its IA.txt files (in `reference/`) define the SSP set we must match, line by
+line, before our implementation is considered correct on the same rules.
+
+## What ships here
+
+```
+enum/
+├── README.md               this file
+├── pyproject.toml          package metadata
+├── src/ssp_enum/           library code
+│   ├── lattice.py          hexagonal lattice, LatticePoint, neighbors
+│   ├── node.py             CGNode (directed SSE node on the lattice)
+│   ├── motif.py            CGMotif (an SSP); isMotifCompact, surrCompact
+│   ├── matrix.py           CGMatrix (2D interaction matrix, IA.txt I/O)
+│   ├── enumerate.py        the dimension-by-dimension growth loop
+│   ├── compactness.py      PCC / SCC criteria from Appendix Fig. S2
+│   ├── prosmos.py          ProSMoS query.txt writer (length constraints, etc.)
+│   └── oracle.py           IA.txt parser for validation against CG-2012
+├── reference/              CG-2012 outputs used as validation oracle
+│   └── IA-*.txt            symlinks or copies from ~/chalam/CG-2012/Sn/IA.txt
+└── tests/                  pytest suite
+    ├── test_lattice.py     neighbor enumeration matches paper Fig. 1a
+    ├── test_compactness.py PCC/SCC against Appendix Fig. S2 cases
+    └── test_oracle.py      our enum output matches reference/ counts
+```
+
+## Validation strategy
+
+Each dimension N has a known SSP count from the CG-2012 reference:
+
+| Dim | CG-2012 count | Paper count | Status |
+|---:|---:|---:|---|
+| 2 | 1 (skeleton) / 5 (typed) | 5 | binary counts skeletons, paper counts typed assignments |
+| 3 | 11 | 23 | binary smaller — rule difference |
+| 4 | 203 (IA.txt blocks) / 41 unique skeletons | 221 | close |
+| 5 | 1472 | 1239 | binary larger — paper added filtering |
+
+Our implementation targets matching the **binary's** counts initially
+(reproducing the 2012 algorithm faithfully), then extends to match the
+**paper's** counts by applying the additional rules described in paper
+Methods that the 2012 binary apparently lacked.
+
+This two-step lets us catch implementation bugs vs. methodology bugs:
+divergence at step 1 means we got the lattice/compactness wrong;
+divergence at step 2 means we have the algorithm right but missed a
+paper-specified post-filter or refinement.
+
+## Paper section ↔ code module map
+
+| Paper | Code | What's implemented |
+|---|---|---|
+| Methods, "Generating SSPs with a lattice" | `lattice.py` | Hexagonal lattice over Z = {−1, 0, 1}, neighbor enumeration |
+| Methods, "compactness was determined by three criteria" | `compactness.py` | PCC (perimeter), SCC criterion-1 (collinearity / ≥2-adjacency), specific eliminations |
+| Appendix Fig. S2c | `compactness.py` | The trapezoid-vs-rhombus elimination |
+| Appendix Fig. S2d | `compactness.py` | Specific S5 eliminations |
+| Appendix Fig. S3 | `lattice.py` | Allowed grids at N=4 and N=5 |
+| Methods, "Assignment of SSE type" | `node.py` | H/E assignment to each lattice node |
+| Methods, "specification of interactions" | `matrix.py` | Pairwise interaction type per SSE pair |
+| Methods, "fold growth through stepwise addition" | `enumerate.py` | Combine S_p + S_q → S_{p+q}, dedupe via mirror symmetry |
+| (out of scope here — search step) | `prosmos.py` | Write final SSPs as ProSMoS query.txt with length constraints |
+
+The `oracle.py` module reads the abbreviated IA.txt format
+(`sS`/`sD`/`hand` keywords, `[5-skel-X][sub-Y]` headers, upper-triangular
+matrix) and yields canonical SSP records for comparison with our enumeration's
+output. This is the only place where the legacy format is consumed; everywhere
+else we use ProSMoS-format directly.
+
+## What we are NOT reimplementing
+
+- **ProSMoS search itself.** Lives in the parent repo (`searchMatrix/`).
+- **The post-ProSMoS hit filter** (paper Appendix Fig. S4). Separate concern.
+- **PDB → SCOP/ECOD mapping.** Handled by parent repo `scripts/`.
+
+This package outputs *queries*. Downstream pipelines consume them.
+
+## Setting up `reference/`
+
+The validation oracles in `reference/` are recovered from Chalam Chitturi's
+archived home directory at `~/chalam/CG-2012/` and are not committed to this
+repo. Populate locally:
+
+```
+cd reference/
+ln -s ~/chalam/CG-2012/S3/IA.txt IA-S3.txt   # 0 bytes — S3 only logged in Info.txt
+ln -s ~/chalam/CG-2012/S4/IA.txt IA-S4.txt   # 203 SSP blocks
+ln -s ~/chalam/CG-2012/S5/IA.txt IA-S5.txt   # 2807 SSP blocks (1472 unique)
+```
+
+If `~/chalam/` is not on your machine, contact the lab — the CG-2012 tree
+was restored from archive in May 2026 and lives on the leda fileserver.
+
+## Status
+
+Scaffolding only. None of the algorithm is implemented yet.
+Next step: load the CG-2012 IA.txt files into `oracle.py` and write the
+parametric counts test in `tests/test_oracle.py` so we have a green
+validation harness ready before we write a single lattice line.

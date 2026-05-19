@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ssp-enum"
+version = "0.0.1"
+description = "Lattice enumeration of compact super-secondary structure patterns (Chitturi 2016)"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Grishin lab" }]
+license = { text = "BSD-3-Clause" }
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
