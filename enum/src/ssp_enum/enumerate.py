@@ -7,9 +7,10 @@ p + q = n; deduplication is via lattice symmetry and mirror-image pairing.
 Currently implemented:
   - S1 (a single lattice point)
   - S2 (a seed pair: two adjacent points)
-  - S3 *planar* (Z=0 only): the 4 base spatial-sequence arrangements that,
-    when crossed with handedness via Z-displacement, yield CG-2012's
-    11 S3 SSPs. Handedness extension is the natural next step.
+  - S3 *planar*: the 4 base spatial-sequence arrangements (`enumerate_s3_planar`)
+  - S3 *full*: 11 SSPs (`enumerate_s3`) matching CG-2012's S3/Stru.txt count,
+    obtained by crossing each base shape with chirality {None, L, R}, with the
+    constraint that closed-cycle shapes (Triangle) admit only chiral variants.
 
 Out of scope here:
   - General S_n for n >= 4 (needs full combine + canonical-form)
@@ -117,6 +118,39 @@ def enumerate_s3_planar() -> Iterator[Skeleton]:
             yield skel
 
 
+def enumerate_s3() -> Iterator[Skeleton]:
+    """Yield the 11 S3 SSPs (planar + chiral) matching CG-2012.
+
+    Cross-product of the 4 base shapes from `enumerate_s3_planar` with
+    chirality assignments:
+
+      - Acyclic shapes (Linear, Bent-A, Bent-B): 3 variants each
+        — unhanded (`chirality=None`), `'L'`, `'R'`.
+      - Cyclic shape (Triangle, all three pairs adjacent): 2 variants
+        only — `'L'`, `'R'`. There is no unhanded triangle in CG-2012;
+        a closed 3-cycle is intrinsically chiral via the orientation of
+        the sequence walk around the loop.
+
+    Total: 3 × 3 + 2 = 11, matching CG-2012/S3/Stru.txt (panels 3-0..3-10).
+
+    Panel mapping (CG-2012 panel → (shape, chirality) emitted here):
+      3-0  Linear   None       3-5  Linear   L     3-6  Linear   R
+      3-1  Triangle L          3-2  Triangle R
+      3-3  Bent-A   None       3-7  Bent-A   L     3-8  Bent-A   R
+      3-4  Bent-B   None       3-9  Bent-B   R     3-10 Bent-B   L
+
+    Chirality is recorded as a label rather than via an explicit Z
+    coordinate on lattice points; see `skeleton.py` for the rationale.
+    """
+    for skel in enumerate_s3_planar():
+        m = skel.adjacency_matrix()
+        is_cycle = m[0][1] and m[0][2] and m[1][2]  # Triangle: all three edges
+        if not is_cycle:
+            yield skel  # unhanded
+        yield Skeleton(points=skel.points, chirality="L")
+        yield Skeleton(points=skel.points, chirality="R")
+
+
 def enumerate_dim(n: int) -> Iterator[Skeleton]:
     """Top-level: dispatch to dimension-specific generators where implemented."""
     if n == 1:
@@ -126,6 +160,6 @@ def enumerate_dim(n: int) -> Iterator[Skeleton]:
         yield Skeleton(points=(LatticePoint(0, 0, 0), LatticePoint(1, 0, 0)))
         return
     if n == 3:
-        yield from enumerate_s3_planar()
+        yield from enumerate_s3()
         return
     raise NotImplementedError(f"enumerate_dim({n}); pending")

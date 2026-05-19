@@ -108,40 +108,45 @@ was restored from archive in May 2026 and lives on the leda fileserver.
 
 ## Status
 
-Validation harness + S3 planar enumeration land green:
+Validation harness + S3 full enumeration (planar + chiral) land green:
 
 ```
 tests/test_oracle.py     ✓ 4 passed   (S4=203, S5=2807, first record, 5-141-7-7 design target)
-tests/test_enumerate.py  ✓ 4 passed   (S1=1, S2=1, S3 planar count=4, S3 topology shapes)
+tests/test_enumerate.py  ✓ 7 passed   (S1=1, S2=1, S3 planar=4, S3 topologies,
+                                       S3 full=11, chirality breakdown, per-shape)
 ```
 
 Implemented:
 - `oracle.py` — IA.txt parser, yields SSPRecord stream
 - `lattice.py` — hex axial coords + neighbor enumeration (in-plane + cross-layer)
-- `skeleton.py` — ordered LatticePoint tuple + adjacency matrix
+- `skeleton.py` — ordered LatticePoint tuple + adjacency matrix + chirality label
 - `compactness.py` — PCC and SCC-1 from Appendix Fig. S2c
-- `enumerate.py` — dimension dispatcher + S3 planar enumeration
+- `enumerate.py` — dimension dispatcher; `enumerate_s3_planar` (4 base shapes)
+  and `enumerate_s3` (11 SSPs = planar + chiral)
 
 S3 planar produces the 4 base spatial-sequence patterns from CG-2012's
-S3/Stru.txt:
+S3/Stru.txt. Crossing each base shape with chirality (per `enumerate_s3`)
+gives the full 11 SSPs:
 
-| Adjacency (1-2, 1-3, 2-3) | Name | CG-2012 panels |
+| Adjacency (1-2, 1-3, 2-3) | Name | CG-2012 panels (chirality) |
 |---|---|---|
-| (T, F, T) | Linear   | 3-0, 3-5(L), 3-6(R) |
-| (T, T, T) | Triangle | 3-1(L), 3-2(R)      |
-| (F, T, T) | Bent-A   | 3-3, 3-7(L), 3-8(R) |
-| (T, T, F) | Bent-B   | 3-4, 3-9(R), 3-10(L)|
+| (T, F, T) | Linear   | 3-0 (None), 3-5 (L), 3-6 (R) |
+| (T, T, T) | Triangle | 3-1 (L), 3-2 (R)             |
+| (F, T, T) | Bent-A   | 3-3 (None), 3-7 (L), 3-8 (R) |
+| (T, T, F) | Bent-B   | 3-4 (None), 3-9 (R), 3-10 (L)|
 
-11 total S3 SSPs in CG-2012 = 4 base shapes × handedness variants.
-Our planar (Z=0) enumeration covers the 4 base shapes; handedness
-extension via Z-displacement (Z ∈ {-1, +1}) is the next milestone.
+Rule: acyclic shapes (Linear, Bent-A, Bent-B) admit an unhanded variant
+in addition to L/R; the cyclic Triangle has only L and R variants — the
+closed 3-cycle is intrinsically chiral via the orientation of the
+sequence walk around the loop. Chirality is recorded as a `'L' | 'R' |
+None` label on `Skeleton`, mapping directly to CG-2012's `hand i j k L|R`
+and ProSMoS's `handedness i j k L|R` lines. The full Z-aware geometric
+realization (assigning concrete z ∈ {-1, 0, 1} per node) is deferred to
+SSE-type/direction assignment downstream.
 
 Next:
-1. Handedness extension — generalize `_canonical_planar_s3` / the
-   enumeration loop to walk the full Z-axis and dedupe under the
-   lattice symmetry group including layer-flip. Target: S3 count = 11.
-2. SCC-2 (Appendix Fig. S2d / S3 whitelist) — needed before S5 in earnest.
-3. General `enumerate_dim(n)` via combine-pairs growth (paper Methods).
-4. SSE-type and interaction-type assignment to grow skeletons into
+1. SCC-2 (Appendix Fig. S2d / S3 whitelist) — needed before S5 in earnest.
+2. General `enumerate_dim(n)` via combine-pairs growth (paper Methods).
+3. SSE-type and interaction-type assignment to grow skeletons into
    full SSPs (we currently only emit skeletons).
-5. ProSMoS-format writer (`prosmos.py`) — depends on (4).
+4. ProSMoS-format writer (`prosmos.py`) — depends on (3).
