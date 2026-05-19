@@ -1,0 +1,15 @@
+panel,file,group_id,group_name,violation
+1,5-269-0-0.bmp,i,five-stranded beta-sheet,jump
+2,5-311-0-0.bmp,i,five-stranded beta-sheet,jump
+3,5-289-0-0.bmp,i,five-stranded beta-sheet,jump
+4,5-288-0-0.bmp,i,five-stranded beta-sheet,jump
+5,5-280-0-0.bmp,i,five-stranded beta-sheet,jump
+6,5-282-0-0.bmp,i,five-stranded beta-sheet,jump
+7,5-306-0-0.bmp,i,five-stranded beta-sheet,jump
+8,5-309-0-0.bmp,i,five-stranded beta-sheet,jump
+36,5-283-1-2.bmp,iii,four-stranded beta-sheet plus one alpha-helix,jump
+40,5-307-1-2.bmp,iii,four-stranded beta-sheet plus one alpha-helix,jump
+41,5-243-1-2.bmp,iii,four-stranded beta-sheet plus one alpha-helix,jump
+56,5-265-7-7.bmp,vi,two-stranded beta-sheet plus three alpha-helices,crossing loop
+57,5-234-7-7.bmp,vi,two-stranded beta-sheet plus three alpha-helices,crossing loop
+58,5-141-7-7.bmp,vi,two-stranded beta-sheet plus three alpha-helices,crossing loop
