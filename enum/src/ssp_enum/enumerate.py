@@ -232,6 +232,15 @@ def enumerate_skeletons(n: int) -> list[Skeleton]:
                         key = canonical_key(candidate)
                         if key not in seen:
                             seen[key] = candidate
+    # No global RCC pass: per the decoded combine-driver logic in
+    # CG-2012's Main() and CGMotif::extend(), RCC is applied LOCALLY
+    # (per parent's extension batch via `eliminateEquivalentMotifs1`)
+    # and GLOBALLY only on the "retained for higher dim" set (motifs
+    # with scc=false OR forHigherDim=true). The output for each
+    # dimension is *not* globally RCC-deduped, which is why oracle's
+    # 41 S4 records include some handedness-equivalent variants from
+    # different parents. Our enumeration is at the same level (modulo
+    # the +1 discrepancy we never closed).
     return list(seen.values())
 
 
