@@ -185,8 +185,79 @@ chirality work (and `handedness_signature` from Phase C4 uses them);
 the field is just no longer part of the canonical equivalence.
 
 S4 now essentially matches the oracle (42 vs 41; +1 likely an RCC
-tie-break case). S5 remains 3.3× short — the structural cause needs
-direct investigation (specific oracle records vs our enumeration).
+tie-break case). S5 remains 3.3× short.
+
+**Model A vs Model B for adjacency** (resolution of the S5 gap):
+
+There are two paper-supportable readings of what counts as a skeleton edge:
+
+- **Model A** (geometric, default): edges = pairs of hex-adjacent lattice
+  points. The full geometric adjacency graph of any placement is the
+  skeleton's edge set automatically. Implemented by `combine.py`;
+  cannot reach K1,4 / C5 (not 2D-hex-realizable as induced subgraphs).
+- **Model B** (combinatorial, experimental): edges are declared during
+  combine. Each step adds one new node with one explicitly-declared
+  join edge; geometric coincidences are not declared (would be `X` in
+  the ProSMoS query). Implemented in `combine_b.py`; reaches the K1,4
+  and tripod+pendant declared graphs Model A can't (but doesn't reach
+  C5 yet — cycles need declaring 2+ edges per add).
+
+`Skeleton.edges` (`frozenset[tuple[int,int]] | None`) is the data-structure
+piece: when set, `adjacency_matrix()` uses the declared edges; when None,
+falls back to geometric. Both modes coexist; existing Model A code paths
+are unchanged.
+
+**Phase 2 status (Model B enumeration):** experimental.
+
+  | Dim | Model A | Model B | oracle |
+  |---:|---:|---:|---:|
+  | 3 |   5 |    19 |    11 |
+  | 4 |  42 |   358 |    41 |
+  | 5 | 198 |  4842 |   648 |
+
+Model B's enumeration over-counts (3858 P5 variants at S5 alone) because
+`canonical_key` quotients by lattice rotation but the declared graphs
+have many lattice realizations the rotation quotient doesn't merge. The
+right dedup is graph-isomorphism on declared edges; future work.
+
+For the **14 design-target work**: the practical path is hand-construction
+of a `Skeleton` with `edges` matching the oracle's declared adjacency
+(plus chirality + start_up + lengths), then emitting a ProSMoS query via
+the planned `prosmos.py` writer. Enumeration via Model B isn't on the
+critical path for that.
+
+**S5 oracle gap analysis (post-investigation, pre-Model-B):** the gap is structural.
+Direct per-grid comparison of combine vs oracle labeled-adjacency
+patterns shows the two produce **different sets of unlabeled grids**
+— only P5 overlaps:
+
+| Unlabeled grid | Combine | Oracle |
+|---|--:|--:|
+| K1,4 star (4e)        | 0  | 5  |
+| tripod+pendant (4e)   | 0  | 58 |
+| P5 (4e)               | 12 | 45 |
+| triangle+2pendants (5e)| 24 | 0  |
+| C5 cycle (5e)         | 0  | 12 |
+| K1,4 sparse (6e)      | 9  | 0  |
+| K1,4 dense (7e)       | 30 | 0  |
+
+We verified exhaustively (box [-3,3]²) that pure C5 is **not
+realizable as a hex-induced graph** — closing a 5-cycle on hex always
+introduces a shortcut edge. The same applies to pure K1,4 (4 leaves
+of any vertex have at least 2 leaf-pair adjacencies on hex). Combine
+respects strict hex realizability; oracle CG-2012 evidently treats
+skeletons as abstract adjacency graphs without enforcing it, so
+records "C5 lattice" or "K1,4 lattice" exist there but their pairs
+with `X` markings would have to be lattice-adjacent — contradicting
+paper §1.1.1 ("Non adjacent SSEs can either interact optionally (X)
+or not interact at all (-)").
+
+The 198 vs 648 gap therefore isn't fixable by tweaking `canonical_key`
+or combine logic — it reflects a different definition of "skeleton
+lattice". Our 198 are paper-Methods-correct hex-induced arrangements;
+matching CG-2012's 648 would require accepting abstract non-realizable
+skeletons. See `project_s5_oracle_gap.md` in session memory for the
+full record.
 
 **S4 essentially matches (42 vs 41); S5 closes a major gap (72 → 198).**
 WHITELIST_S4 and WHITELIST_S5 are now derived directly from paper Fig. S3

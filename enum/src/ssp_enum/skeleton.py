@@ -73,11 +73,20 @@ class Skeleton:
     are typically distinct SSPs (different linker-plane assignments),
     unless the skeleton has a sequence-reversal symmetry that the
     canonical form would identify.
+
+    `edges` is the optional set of declared adjacency edges
+    `(i, j)` with `i < j` in 0-indexed sequence labels. When set
+    (Model B / combinatorial), `adjacency_matrix()` uses these
+    declared edges. When `None` (Model A / geometric, default),
+    `adjacency_matrix()` computes adjacency from lattice positions.
+    Both models are paper-supported readings of Chitturi 2016 §1.1
+    — see the docstring on `combine.canonical_key` for the trade-off.
     """
 
     points: tuple[LatticePoint, ...]
     chirality: Optional[str] = None
     start_up: bool = True
+    edges: Optional[frozenset[tuple[int, int]]] = None
 
     @property
     def orientations(self) -> tuple[bool, ...]:
@@ -94,8 +103,19 @@ class Skeleton:
         return len(self.points)
 
     def adjacency_matrix(self) -> tuple[tuple[bool, ...], ...]:
-        """Upper-triangular boolean: rows[i][j] = is_adjacent(i, j) for i<j."""
+        """Upper-triangular boolean: rows[i][j] = adjacent(i, j) for i<j.
+
+        Uses `self.edges` when set (Model B / declared adjacency);
+        otherwise computes from lattice positions via `is_adjacent`
+        (Model A / geometric, the historic default).
+        """
         n = self.dim
+        if self.edges is not None:
+            ed = self.edges
+            return tuple(
+                tuple(((i, j) in ed) if j > i else False for j in range(n))
+                for i in range(n)
+            )
         rows: list[tuple[bool, ...]] = []
         for i in range(n):
             row = tuple(
