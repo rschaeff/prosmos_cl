@@ -1,0 +1,16 @@
+1 2 3 4 5
+E E E E E
+* t c - X
+  * - c v
+    * - X
+      * X
+        *
+sheetS 1 2 3 4
+sheetD 5 1
+length 1 E 5 1000
+length 2 E 5 1000
+length 3 E 5 1000
+length 4 E 5 1000
+length 5 E 5 1000
+handedness 1 2 5 L
+handedness 3 4 5 L

@@ -135,7 +135,13 @@ Implemented:
   `combine_two_skeletons` (|s2|≥2: anchor × ext_pt × 60°·k × {front,end} join),
   `canonical_key` (Phase C1: rotation-only quotient — translation × 6 hex
   rotations; reflections and z-flip flip handedness and so stay outside the
-  symmetry group, leaving mirror pairs as distinct skeletons)
+  symmetry group, leaving mirror pairs as distinct skeletons),
+  `handedness_signature` (paper §1.1.2 scalar-triple-product per-triple sign)
+- `combine_b.py` — experimental Model B (combinatorial adjacency)
+  enumeration; reaches K1,4 / tripod+pendant declared graphs but
+  over-counts and misses C5. See "Model A vs Model B" below.
+- `prosmos.py` — ProSMoS query.txt writer from `oracle.SSPRecord`. Used
+  to auto-generate design-target queries (`scripts/generate_design_target_queries.py`).
 
 S3 planar produces the 4 base spatial-sequence patterns from CG-2012's
 S3/Stru.txt. Crossing each base shape with chirality (per `enumerate_s3`)
@@ -220,11 +226,16 @@ Model B's enumeration over-counts (3858 P5 variants at S5 alone) because
 have many lattice realizations the rotation quotient doesn't merge. The
 right dedup is graph-isomorphism on declared edges; future work.
 
-For the **14 design-target work**: the practical path is hand-construction
-of a `Skeleton` with `edges` matching the oracle's declared adjacency
-(plus chirality + start_up + lengths), then emitting a ProSMoS query via
-the planned `prosmos.py` writer. Enumeration via Model B isn't on the
-critical path for that.
+For the **14 design-target work**: `prosmos.py` writes a ProSMoS
+query.txt directly from an `SSPRecord` (oracle data — already has
+adjacency, types, sheets, handedness). The script
+`scripts/generate_design_target_queries.py` produces queries for the 9
+of 14 design targets present in `~/chalam/CG-2012/S5/IA.txt`; output
+lands in `../example/ssp_design_targets/queries_enum/`. The 5 missing
+targets (`5-283-1-2`, `5-307-1-2`, `5-243-1-2`, `5-265-7-7`,
+`5-234-7-7`) are from a post-2012 website enumeration not in
+CG-2012 — hand-construction via `Skeleton.edges` + the writer is the
+path for those.
 
 **S5 oracle gap analysis (post-investigation, pre-Model-B):** the gap is structural.
 Direct per-grid comparison of combine vs oracle labeled-adjacency

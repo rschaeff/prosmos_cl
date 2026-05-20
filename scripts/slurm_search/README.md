@@ -33,6 +33,7 @@ Environment knobs:
 | `DB`  | `/home/rschaeff/src/Prosmos/ProSMoS/metamatrixdb/metamatricesDB` | The 2010-era 306 MB metamatricesDB. Override for a freshly built DB. |
 | `CONCURRENCY` | `64` | Max concurrent array tasks. Cap on busy clusters — for the full 1488-SSP rerun do not omit. |
 | `SEARCH` | repo `searchMatrix/build/searchmatrix` | Path to the binary, picked up by `array.sbatch`. |
+| `TIMELIMIT` | (sbatch default `01:00:00`) | Override per-task `--time`. Use e.g. `04:00:00` for slower queries — on the 306MB 2010 DB roughly half the design-target searches finished in 18-51 min, but the other half needed >1h. |
 
 ## What each array task does
 
