@@ -11,7 +11,10 @@ from ssp_enum.combine import (
     canonical_key,
     combine_two_skeletons,
     combine_with_single_node,
+    dist_sum,
     handedness_signature,
+    layers,
+    rcc_dedup,
     valid_extension_points,
 )
 from ssp_enum.compactness import is_compact
@@ -196,6 +199,59 @@ def test_handedness_signature_triangle_chirality():
     assert s_ccw != (0,)  # non-collinear → non-zero
 
 
+def test_dist_sum_collinear_three_points():
+    """For 3 collinear hex points at unit spacing, pairwise distances
+    are 1, 1, 2 → sum = 4.0."""
+    s = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(2, 0, 0),
+    ))
+    assert abs(dist_sum(s) - 4.0) < 1e-9
+
+
+def test_layers_count_unique_y():
+    """3 collinear hex points on the q-axis all have y=0 → 1 layer.
+    Triangle (0,0), (1,0), (0,1) has y values 0, 0, √3/2 → 2 layers."""
+    linear = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(2, 0, 0),
+    ))
+    assert layers(linear) == 1
+    triangle = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(0, 1, 0),
+    ))
+    assert layers(triangle) == 2
+
+
+def test_rcc_dedup_collapses_equivalent_skeletons():
+    """Two skeletons with the same handedness signature should collapse
+    to one (the lower dist_sum/layers wins). Two with different
+    handedness signatures stay distinct."""
+    # Two CCW triangles at different lattice positions — same handedness sig.
+    ccw_a = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(0, 1, 0),
+    ))
+    ccw_b = Skeleton(points=(  # translated/rotated — same handedness
+        LatticePoint(5, 5, 0),
+        LatticePoint(6, 5, 0),
+        LatticePoint(5, 6, 0),
+    ))
+    # CW triangle — different handedness sig.
+    cw = Skeleton(points=(
+        LatticePoint(0, 0, 0),
+        LatticePoint(1, 0, 0),
+        LatticePoint(1, -1, 0),
+    ))
+    survivors = rcc_dedup([ccw_a, ccw_b, cw])
+    assert len(survivors) == 2  # one CCW representative + one CW
+
+
 def test_handedness_signature_orientation_dependence():
     """A non-collinear triple gets opposite handedness when all SSE
     orientations flip (start_up → not start_up flips every z=±1, which
@@ -275,6 +331,31 @@ def test_s3_plus_s2_emits_new_s5_skeletons():
     # If S3+S2 contributed nothing, total would equal the single-node
     # count. Under Phase C1 canonical_key, total = 70 > single-node-only.
     assert len(enumerate_skeletons(5)) > 50
+
+
+def test_enumerate_skeletons_rcc_post_pass():
+    """`enumerate_skeletons_rcc(n)` = `enumerate_skeletons(n)` + RCC dedup.
+
+    Mechanical port of CG-2012's `CGMotif::checkEquivalence5Gr` (decoded
+    from the binary IL): group skeletons by handedness signature; within
+    each group keep the one with lowest (dist_sum, layers, original
+    index). Applied as a post-pass on combine output.
+
+    Counts:
+      S3: 5 → 3   (collinear shapes all collapse via same handedness sig)
+      S4: 42 → 23 (matches pure handedness signature count from Phase C4
+                   investigation; tighter than oracle 41)
+      S5: 198 → 164 (some intra-class collapse; far from oracle 648)
+
+    The over-collapse vs oracle suggests CG-2012 applies RCC only within
+    local combine contexts (siblings of the same parent during growth),
+    not as a single global pass. `enumerate_skeletons` (no RCC) remains
+    the production enumerator; this function is exposed for analysis.
+    """
+    from ssp_enum.enumerate import enumerate_skeletons_rcc
+    assert len(enumerate_skeletons_rcc(3)) == 3
+    assert len(enumerate_skeletons_rcc(4)) == 23
+    assert len(enumerate_skeletons_rcc(5)) == 164
 
 
 def test_enumerate_skeletons_all_compact():

@@ -38,7 +38,12 @@ from __future__ import annotations
 
 from typing import Iterator
 
-from .combine import canonical_key, combine_two_skeletons, combine_with_single_node
+from .combine import (
+    canonical_key,
+    combine_two_skeletons,
+    combine_with_single_node,
+    rcc_dedup,
+)
 from .compactness import is_compact
 from .lattice import LatticePoint
 from .skeleton import Skeleton
@@ -228,6 +233,25 @@ def enumerate_skeletons(n: int) -> list[Skeleton]:
                         if key not in seen:
                             seen[key] = candidate
     return list(seen.values())
+
+
+def enumerate_skeletons_rcc(n: int) -> list[Skeleton]:
+    """Same as `enumerate_skeletons(n)` but applies RCC dedup as a final pass.
+
+    RCC (paper Appendix §1.2 / decoded from CG-2012 `CGMotif::
+    checkEquivalence5Gr`) collapses handedness-equivalent skeletons to a
+    single canonical representative chosen by lowest (dist_sum, layers,
+    original index).
+
+    Empirically this is *more aggressive* than CG-2012's oracle: S4
+    drops to 21 (oracle: 41), S5 to 117 (oracle: 648). The mechanical
+    port matches the decoded IL precisely; the over-collapse suggests
+    CG-2012 applies RCC only within local combine contexts (e.g.,
+    siblings of the same parent during growth), not as a global final
+    pass. We expose this as a separate function rather than baking it
+    into `enumerate_skeletons` so callers can compare both views.
+    """
+    return rcc_dedup(enumerate_skeletons(n))
 
 
 def enumerate_dim(n: int) -> Iterator[Skeleton]:

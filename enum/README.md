@@ -136,7 +136,9 @@ Implemented:
   `canonical_key` (Phase C1: rotation-only quotient — translation × 6 hex
   rotations; reflections and z-flip flip handedness and so stay outside the
   symmetry group, leaving mirror pairs as distinct skeletons),
-  `handedness_signature` (paper §1.1.2 scalar-triple-product per-triple sign)
+  `handedness_signature` (paper §1.1.2 scalar-triple-product per-triple sign),
+  `dist_sum` + `layers` + `rcc_dedup` (RCC port from decoded CG-2012 IL —
+  see "RCC port" section below)
 - `combine_b.py` — experimental Model B (combinatorial adjacency)
   enumeration; reaches K1,4 / tripod+pendant declared graphs but
   over-counts and misses C5. See "Model A vs Model B" below.
@@ -324,6 +326,35 @@ handedness equivalence rule. Our current canonical (rotation + start_up
 + chirality) sits closer to oracle behavior than pure handedness would.
 `handedness_signature(skel)` is retained as a utility — it'll be
 load-bearing once SSE-type assignment + ProSMoS query writing land.
+
+**RCC port (Chitturi 2016 Appendix §1.2)**: `combine.dist_sum(skel)`,
+`combine.layers(skel)`, and `combine.rcc_dedup(skels)` implement the
+paper's Relative Compactness Criterion. The port was derived by
+decompiling CG-2012's binary (`CompactGenerator2.exe`) — specifically
+`CGMotif::checkEquivalence5Gr`, which packs equivalence check + RCC
+selection into a single function. Among handedness-equivalent
+skeletons, RCC picks the one with lowest `(dist_sum, layers,
+original_index)`. `enumerate_skeletons_rcc(n)` exposes the post-pass
+version.
+
+Empirically, applying RCC as a global post-pass *over-collapses*
+relative to the oracle:
+
+| Dim | combine | + RCC post-pass | oracle |
+|---:|---:|---:|---:|
+| 3 | 5   | 3   | 11  |
+| 4 | 42  | 23  | 41  |
+| 5 | 198 | 164 | 648 |
+
+This is informative: CG-2012's oracle doesn't behave as if RCC is
+applied globally. The decoded IL shows RCC selection happens in
+specific combine contexts (siblings of a parent during growth) — the
+oracle's 41 / 648 skel_ids include records that *would* collapse
+under a global RCC pass but were emitted into the IA.txt before the
+global dedup. So `enumerate_skeletons` (no RCC) remains the
+production enumerator; `enumerate_skeletons_rcc` is for analysis and
+for downstream work that wants canonical representatives within
+equivalence classes.
 
 Next:
 1. **Decide whether to revert Phase C2's start_up doubling**. Pre-C2,

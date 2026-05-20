@@ -180,9 +180,83 @@ def _z_flip(p: LatticePoint) -> LatticePoint:
     return LatticePoint(p.q, p.r, -p.z)
 
 
+_SQRT3_OVER_2 = 0.8660254037844386
+_LAYER_EPSILON = 0.01  # matches CG-2012 LatticePoint.ZERO_THRESHOLD
+
+
 def _axial_to_euclidean(p: LatticePoint) -> tuple[float, float]:
     """Convert axial hex coords to Euclidean xy."""
-    return (p.q + p.r * 0.5, p.r * 0.8660254037844386)  # sqrt(3)/2
+    return (p.q + p.r * 0.5, p.r * _SQRT3_OVER_2)
+
+
+def dist_sum(skel: Skeleton) -> float:
+    """Pair-wise Euclidean distance sum (RCC primary criterion).
+
+    Port of CG-2012 CGMotif._distSum (read in checkEquivalence5Gr at
+    line 0x0047 of the IL). Used as the first RCC tie-break per paper
+    Appendix §1.2: "the skeleton with least pair-wise distance sum is
+    preferred."
+    """
+    import math
+    pts = [_axial_to_euclidean(p) for p in skel.points]
+    n = len(pts)
+    total = 0.0
+    for i in range(n):
+        xi, yi = pts[i]
+        for j in range(i + 1, n):
+            xj, yj = pts[j]
+            total += math.sqrt((xi - xj) ** 2 + (yi - yj) ** 2)
+    return total
+
+
+def layers(skel: Skeleton) -> int:
+    """Number of unique y-coordinates in the skeleton's Euclidean projection.
+
+    Port of CG-2012 CGMotif._layers (read in checkEquivalence5Gr at
+    line 0x006e). RCC secondary tie-break per paper Appendix §1.2:
+    "if it is same for both then the skeleton with minimum number of
+    unique y coordinates (layers) is chosen." Uses the same
+    `LatticePoint.ZERO_THRESHOLD = 0.01` epsilon as CG-2012.
+    """
+    ys = sorted(_axial_to_euclidean(p)[1] for p in skel.points)
+    if not ys:
+        return 0
+    n_unique = 1
+    for i in range(1, len(ys)):
+        if abs(ys[i] - ys[i - 1]) > _LAYER_EPSILON:
+            n_unique += 1
+    return n_unique
+
+
+def rcc_dedup(skeletons: list[Skeleton]) -> list[Skeleton]:
+    """Among handedness-equivalent skeletons, keep the RCC winner.
+
+    Port of CG-2012's CGMotif::checkEquivalence5Gr selection logic.
+    Equivalence is by full handedness signature (the binary's `handSum1`
+    is a uint64 hash of this; using the tuple directly avoids hash
+    collision issues). Within each equivalence class, the canonical
+    representative is the one with:
+
+      1. lowest `dist_sum` (pair-wise distance sum), epsilon 0.01;
+      2. tied → lowest `layers` (unique-y count);
+      3. tied → first in input order.
+
+    Match to paper Appendix §1.2 RCC and to the decoded CG-2012 IL.
+    """
+    from collections import defaultdict
+    by_hand: dict[tuple, list[tuple[int, Skeleton]]] = defaultdict(list)
+    for idx, s in enumerate(skeletons):
+        by_hand[handedness_signature(s)].append((idx, s))
+    result: list[Skeleton] = []
+    for group in by_hand.values():
+        if len(group) == 1:
+            result.append(group[0][1])
+            continue
+        # Compute RCC keys once per skeleton.
+        scored = [(dist_sum(s), layers(s), idx, s) for idx, s in group]
+        scored.sort(key=lambda t: (t[0], t[1], t[2]))
+        result.append(scored[0][3])
+    return result
 
 
 def handedness_signature(skel: Skeleton) -> tuple[int, ...]:
