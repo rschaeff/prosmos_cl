@@ -189,18 +189,9 @@ def enumerate_skeletons(n: int) -> list[Skeleton]:
         rotation when join orientations clash
     """
     if n == 1:
-        # S1: single point. Two orientation variants (start_up True/False).
-        return [
-            Skeleton(points=(LatticePoint(0, 0, 0),), start_up=True),
-            Skeleton(points=(LatticePoint(0, 0, 0),), start_up=False),
-        ]
+        return [Skeleton(points=(LatticePoint(0, 0, 0),))]
     if n == 2:
-        # S2: two adjacent points. Two orientation variants.
-        pts = (LatticePoint(0, 0, 0), LatticePoint(1, 0, 0))
-        return [
-            Skeleton(points=pts, start_up=True),
-            Skeleton(points=pts, start_up=False),
-        ]
+        return [Skeleton(points=(LatticePoint(0, 0, 0), LatticePoint(1, 0, 0)))]
     seen: dict[tuple, Skeleton] = {}
     for q in range(1, n // 2 + 1):
         p = n - q

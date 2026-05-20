@@ -169,25 +169,24 @@ introduced in `enumerate_s3()`.
 
 **Combine-pairs Phase C status:**
 
-| Dim | Phase B | Phase C1 | Phase C-S4 | Phase C-S5 | **Phase C2** | oracle (distinct skel_id) | paper |
-|---:|---:|---:|---:|---:|---:|---:|---:|
-| 3 | 4   | 5   | 5   | 5   | 10  | 11   | 23   |
-| 4 | 10  | 14  | 42  | 42  | 84  | 41   | 221  |
-| 5 | 41  | 70  | 72  | 198 | **396** | 648  | 1239 |
+| Dim | Phase B | Phase C1 | Phase C-S4 | Phase C-S5 | Phase C2 | **Phase C2-revert** | oracle (distinct skel_id) | paper |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 3 | 4   | 5   | 5   | 5   | 10  | 5   | 11   | 23   |
+| 4 | 10  | 14  | 42  | 42  | 84  | **42** | 41   | 221  |
+| 5 | 41  | 70  | 72  | 198 | 396 | **198** | 648  | 1239 |
 
-Phase C2 added `start_up: bool` to `Skeleton` — the orientation of node 1
-(paper Appendix §1.1: "Consecutive nodes have opposite orientation and
-are connected by a linker that lies entirely in z=1 or z=0 plane depending
-on whether the orientation of x is up or down"). UP-start and DOWN-start
-produce distinct linker-plane assignments and so distinct SSPs. With
-`canonical_key` extended to include `start_up`, every skeleton becomes 2
-distinct skeletons → counts double.
+Phase C2 (added `start_up` to `canonical_key`) was reverted. Pre-C2 S4=42
+matched oracle 41 almost exactly; post-C2 we overshot to 84. The paper
+says UP-start and DOWN-start give distinct linker-plane assignments
+(so distinct SSPs at the SSP level), but CG-2012's oracle counts them
+as one skeleton at the skeleton-enumeration level. `Skeleton.start_up`
+and `Skeleton.orientations` are retained for downstream handedness /
+chirality work (and `handedness_signature` from Phase C4 uses them);
+the field is just no longer part of the canonical equivalence.
 
-At S4 we now overshoot the oracle (84 > 41) and at S5 we approach but
-don't reach it (396 vs 648, ratio 1.64). The overshoot at S4 reflects
-the need for **sequence-reversal dedup** (RCC, paper §1.2): walking the
-sequence in reverse with start_up flipped gives the same physical
-arrangement, so should collapse to one. Phase C3 will add this.
+S4 now essentially matches the oracle (42 vs 41; +1 likely an RCC
+tie-break case). S5 remains 3.3× short — the structural cause needs
+direct investigation (specific oracle records vs our enumeration).
 
 **S4 essentially matches (42 vs 41); S5 closes a major gap (72 → 198).**
 WHITELIST_S4 and WHITELIST_S5 are now derived directly from paper Fig. S3

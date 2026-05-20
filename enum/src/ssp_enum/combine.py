@@ -267,7 +267,15 @@ def canonical_key(skel: Skeleton) -> tuple:
       Phase A/B: 12 hex symmetries + z-flip (too coarse — collapsed
                  mirror pairs CG-2012 keeps distinct).
       Phase C1: rotation-only (translation × 6 rotations).
-      Phase C2: + start_up flag in the key.
+      Phase C2: + start_up flag in the key (REVERTED post-C4).
+      Phase C2-revert: dropped start_up from the key because pre-C2
+                 S4=42 matched oracle 41 exactly while post-C2 S4=84
+                 overshot by 2x. The paper says UP-start and DOWN-start
+                 SSPs differ in linker-plane assignment, but CG-2012's
+                 oracle counts them as one skeleton. We retain
+                 `Skeleton.start_up` and `Skeleton.orientations` for
+                 downstream chirality / handedness work — the field is
+                 no longer part of the canonical equivalence class.
     """
     pts = skel.points
 
@@ -284,4 +292,4 @@ def canonical_key(skel: Skeleton) -> tuple:
         candidates.append(key_of(cur))
         cur = tuple(_rotate60(p) for p in cur)
         cur = translate_to_origin(cur)
-    return (min(candidates), skel.start_up, skel.chirality)
+    return (min(candidates), skel.chirality)

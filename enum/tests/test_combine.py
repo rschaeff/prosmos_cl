@@ -137,13 +137,16 @@ def test_canonical_key_distinguishes_mirror_pair():
     assert canonical_key(triangle_ccw) != canonical_key(triangle_cw)
 
 
-def test_canonical_key_distinguishes_start_orientation():
-    """Phase C2: UP-start and DOWN-start same lattice are distinct
-    canonical keys (different linker-plane assignment per paper §1.1)."""
+def test_canonical_key_ignores_start_orientation():
+    """Phase C2-revert: start_up no longer in the canonical key. Pre-C2
+    S4=42 matched oracle 41 exactly while post-C2 S4=84 overshot by 2x;
+    CG-2012 doesn't separate UP-start and DOWN-start as distinct skeletons
+    at the skeleton-enumeration level. The `start_up` field is retained on
+    Skeleton for downstream handedness/chirality work."""
     pts = (LatticePoint(0, 0, 0), LatticePoint(1, 0, 0), LatticePoint(2, 0, 0))
     up = Skeleton(points=pts, start_up=True)
     down = Skeleton(points=pts, start_up=False)
-    assert canonical_key(up) != canonical_key(down)
+    assert canonical_key(up) == canonical_key(down)
 
 
 def test_orientations_alternate_from_start_up():
@@ -214,15 +217,12 @@ def test_handedness_signature_orientation_dependence():
 def test_enumerate_skeletons_s3_covers_base_shapes():
     """S3 via combine covers all 4 base adjacency patterns.
 
-    Phase C1 split Triangle into CW/CCW mirror variants (4 → 5 shapes).
-    Phase C2 adds the `start_up` orientation flag, doubling distinct
-    skeletons (UP-start vs DOWN-start give different linker placements
-    per paper Appendix §1.1). Result: 10 skeletons across the same 4
-    adjacency patterns.
+    Phase C1 split Triangle into CW/CCW mirror variants → 5 skeletons.
+    Phase C2 doubled to 10 (start_up); Phase C2-revert restored 5.
     """
     combine_s3 = enumerate_skeletons(3)
     planar_s3 = list(enumerate_s3_planar())
-    assert len(combine_s3) == 10
+    assert len(combine_s3) == 5
     assert len(planar_s3) == 4
     combine_patterns = {_adjacency_signature(s) for s in combine_s3}
     planar_patterns = {_adjacency_signature(s) for s in planar_s3}
@@ -230,32 +230,27 @@ def test_enumerate_skeletons_s3_covers_base_shapes():
 
 
 def test_enumerate_skeletons_s4_count():
-    """Phase C2 regression pin: S4 = 84 via combine (oracle: 41).
+    """Phase C2-revert regression pin: S4 = 42 via combine (oracle: 41).
 
-    Double the 42 from Phase C-S4 once `start_up` is part of the
-    canonical key. We overshoot the oracle (84 > 41) — the remaining
-    gap is the proper handedness equivalence (paper §1.1: label-by-
-    label triple-handedness match) + RCC, which would dedupe some of
-    these as equivalent.
-
-    Phase C3 attempt (sequence-reversal + start_up-flip dedup) was
-    reverted: it over-collapsed Bent-A/Bent-B and CW/CCW mirror
-    triangles, neither of which the paper treats as equivalent.
+    Down from 84 once `start_up` is removed from canonical_key. Now
+    essentially matches CG-2012's distinct-skel_id count; the +1 is
+    likely a single mirror-pair case that RCC would tie-break.
     """
-    assert len(enumerate_skeletons(4)) == 84
+    assert len(enumerate_skeletons(4)) == 42
 
 
 def test_enumerate_skeletons_s5_count():
-    """Phase C2 regression pin: S5 = 396 via combine (oracle: 648).
+    """Phase C2-revert regression pin: S5 = 198 via combine (oracle: 648).
 
-    Double the 198 from Phase C-S5 once `start_up` is part of the
-    canonical key. Narrows the gap to oracle from 3.3x to 1.64x.
-    The remaining factor likely needs:
-      - additional (f) lattice variants we don't reach via combine
-      - or chirality-distinct combine paths the current canonical_key
-        rotation-only quotient still collapses
+    Down from 396 once `start_up` is removed from canonical_key.
+    The S4 fix is clean but S5 still 3.3x short of oracle 648 — the
+    structural cause is not yet identified. Candidates:
+      - additional (f) / (g) lattice realizations our combine doesn't
+        reach via the current seed + valid_extension_points
+      - CG-2012 over-enumerates per-build-path without RCC dedup,
+        so 648 might collapse to ~200 under a proper canonical
     """
-    assert len(enumerate_skeletons(5)) == 396
+    assert len(enumerate_skeletons(5)) == 198
 
 
 def test_s2_plus_s2_produces_compact_candidates():
