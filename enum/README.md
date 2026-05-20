@@ -328,54 +328,28 @@ handedness equivalence rule. Our current canonical (rotation + start_up
 load-bearing once SSE-type assignment + ProSMoS query writing land.
 
 **RCC port (Chitturi 2016 Appendix §1.2)**: `combine.dist_sum(skel)`,
-`combine.layers(skel)`, and `combine.rcc_dedup(skels)` implement the
-paper's Relative Compactness Criterion. The port was derived by
-decompiling CG-2012's binary (`CompactGenerator2.exe`) —
-`CGMotif::checkEquivalence5Gr` packs equivalence check + RCC selection
-into a single function. Among handedness-equivalent skeletons, RCC
-picks the one with lowest `(dist_sum, layers, original_index)`.
-`enumerate_skeletons_rcc(n)` exposes a global post-pass version for
-analysis.
+`combine.layers(skel)`, `combine.rcc_dedup(skels)`, and
+`enumerate.enumerate_skeletons_rcc(n)` implement the paper's Relative
+Compactness Criterion. The port was derived by decompiling CG-2012's
+binary; full reference at [docs/cg2012_internals.md](docs/cg2012_internals.md).
 
-**RCC application context (from decoded CG-2012 combine driver):**
+Production `enumerate_skeletons` does *not* apply RCC. Empirical
+comparison:
 
-Further decompilation of `CGMotif::extend()` and `Program::Main()`
-revealed CG-2012 applies RCC in a *two-tier* way:
-
-1. **Local-per-parent RCC** inside `extend()` via
-   `eliminateEquivalentMotifs1` — dedupe handedness-equivalent
-   skeletons within one parent's extension batch.
-2. **Global RCC** only on the *carry-forward* set (motifs with
-   `scc=false` OR `forHigherDim=true`, retained for use as parents
-   in larger dimensions) — applied before they feed back into the
-   next dim's combine.
-
-The motifs **emitted as output** at each dim are the `scc=true AND
-forHigherDim=false` survivors — they get local-RCC dedup only.
-That's why oracle's 41 S4 records keep some handedness-equivalent
-variants from different parents — they were locally-deduped within
-each parent's extension batch but never globally compared.
-
-Empirical comparison of variants:
-
-| Dim | combine (production, no RCC) | + global RCC post-pass | oracle |
+| Dim | enumerate_skeletons | enumerate_skeletons_rcc | oracle |
 |---:|---:|---:|---:|
 | 3 | 5   | 3   | 11  |
 | 4 | 42  | 23  | 41  |
 | 5 | 198 | 164 | 648 |
 
-A naive "local RCC during extend" port over-cascades (S4 drops to
-22) because we'd be applying it to *both* the output and the
-carry-forward set — CG-2012 separates these. Reproducing the full
-two-tier dedup would require modeling per-motif `scc` and
-`forHigherDim` fields and re-running with the carry-forward path
-distinct from the output path — a substantial refactor for closing
-the last +1 at S4. We've stopped here: `enumerate_skeletons` (no
-RCC) matches the oracle at the dim level for S3 (within the
-expected handedness-class structure), gets within +1 at S4, and
-remains the production enumerator. `rcc_dedup` and
-`enumerate_skeletons_rcc` are available for downstream analysis
-where you want canonical representatives.
+CG-2012 applies RCC in a **two-tier** way: locally inside
+`extend()` for each parent's extension batch, globally only on the
+"carry-forward" set (motifs retained as building blocks for larger
+dimensions). The motifs *emitted as output* at each dim get only
+local-tier dedup — which is why oracle records keep some
+handedness-equivalent siblings from different parents. Closing the
+last +1 at S4 would require modeling the output/carry-forward split
+end-to-end; out of scope for now. See the docs for details.
 
 Next:
 1. **Decide whether to revert Phase C2's start_up doubling**. Pre-C2,
