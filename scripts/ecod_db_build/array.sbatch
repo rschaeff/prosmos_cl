@@ -10,6 +10,8 @@
 #   CHUNK_DIR  — directory of chunk_NNN.txt files
 #   WORK_ROOT  — root for per-task work dirs (NFS-visible)
 #   FRAG_DIR   — per-task fragment outputs
+#   SCRIPT_DIR — directory holding process_chunk.sh (SLURM stages this script
+#                into /var/spool/slurmd/jobNNN/ so $(dirname "$0") is useless)
 #
 # Each task processes chunk_${SLURM_ARRAY_TASK_ID}.txt and writes
 # fragment_${SLURM_ARRAY_TASK_ID}.frag.
@@ -19,6 +21,7 @@ set -euo pipefail
 : "${CHUNK_DIR:?missing CHUNK_DIR}"
 : "${WORK_ROOT:?missing WORK_ROOT}"
 : "${FRAG_DIR:?missing FRAG_DIR}"
+: "${SCRIPT_DIR:?missing SCRIPT_DIR}"
 : "${PARALLEL:=8}"
 
 TASK_ID="$SLURM_ARRAY_TASK_ID"
@@ -26,11 +29,9 @@ CHUNK="$CHUNK_DIR/chunk_${TASK_ID}.txt"
 TASK_WORK="$WORK_ROOT/task_${TASK_ID}"
 FRAG="$FRAG_DIR/fragment_${TASK_ID}.frag"
 
-HERE=$(cd "$(dirname "$0")" && pwd)
-
 echo "[$(date)] Task $TASK_ID starting on $(hostname); chunk=$CHUNK; work=$TASK_WORK"
 
-PARALLEL="$PARALLEL" "$HERE/process_chunk.sh" "$CHUNK" "$TASK_WORK" "$FRAG"
+PARALLEL="$PARALLEL" "$SCRIPT_DIR/process_chunk.sh" "$CHUNK" "$TASK_WORK" "$FRAG"
 
 echo "[$(date)] Task $TASK_ID finished"
 

@@ -23,7 +23,9 @@
 #                    DB_FILTER="status='complete' AND domain_source_type='pdb'
 #                               AND ecod_uid IN (SELECT ... F40)"
 #   CONCURRENCY  — max concurrent array tasks (default 64)
-#   PGHOST/PGPORT/PGUSER/PGDATABASE  — DB connection (defaults to dione/45000)
+#
+# DB connection (dione:45000 / ecod_protein) is hardcoded below — overriding via
+# PG* env vars would risk pointing the manifest pull at a stale ECOD instance.
 
 set -euo pipefail
 
@@ -34,11 +36,14 @@ set -euo pipefail
 : "${DB_FILTER:=file_type_id=2 AND status='complete' AND domain_source_type='pdb'}"
 : "${CONCURRENCY:=64}"
 
-: "${PGHOST:=dione}"
-: "${PGPORT:=45000}"
-: "${PGUSER:=ecod}"
-: "${PGDATABASE:=ecod_protein}"
-: "${PGPASSWORD:=***REMOVED***}"
+# Hardcode the ECOD DB connection. Using `:=` defaults here would let a
+# user's shell-exported PGHOST (e.g. ~/.bashrc setting PGHOST=lotta) silently
+# point the manifest pull at the wrong server. Unconditional assignment.
+PGHOST=dione
+PGPORT=45000
+PGUSER=ecod
+PGDATABASE=ecod_protein
+PGPASSWORD='***REMOVED***'
 export PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -61,6 +66,9 @@ echo "[$(date)] Manifest: $N_PATHS paths"
 # may be smaller; numbered 1..N_CHUNKS to match SLURM array indices.
 CHUNK_SIZE=$(( (N_PATHS + N_CHUNKS - 1) / N_CHUNKS ))
 echo "[$(date)] Splitting $N_PATHS paths into $N_CHUNKS chunks of $CHUNK_SIZE"
+# Truncate any leftover chunk files from a previous run — awk below uses
+# append (`>>`) so we'd silently double the workload otherwise.
+find "$OUT/chunks" -name "chunk_*.txt" -delete
 # `split` would name files alphabetically; use awk to write numerically.
 awk -v cs="$CHUNK_SIZE" -v dir="$OUT/chunks" '
   { idx = int((NR - 1) / cs) + 1
@@ -83,7 +91,7 @@ ARRAY_ID=$(sbatch --parsable \
     --cpus-per-task="$PARALLEL" \
     --array="1-${N_CHUNKS}%${CONCURRENCY}" \
     --chdir="$OUT/logs" \
-    --export=CHUNK_DIR="$OUT/chunks",WORK_ROOT="$OUT/work",FRAG_DIR="$OUT/fragments",PARALLEL="$PARALLEL" \
+    --export=CHUNK_DIR="$OUT/chunks",WORK_ROOT="$OUT/work",FRAG_DIR="$OUT/fragments",SCRIPT_DIR="$HERE",PARALLEL="$PARALLEL" \
     "$HERE/array.sbatch")
 echo "[$(date)] Array job id: $ARRAY_ID"
 
