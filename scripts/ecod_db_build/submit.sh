@@ -84,12 +84,20 @@ if [ "$ACTUAL_CHUNKS" -ne "$N_CHUNKS" ]; then
     N_CHUNKS="$ACTUAL_CHUNKS"
 fi
 
-# Stage 3: submit the array
+# Stage 3: submit the array.
+# `--exclude` skips the odd-numbered leda23..45 hardware generation, where
+# generateMatrix's OpenMPI dies in MPI_Init under SLURM (the cluster's MPI
+# was built without --with-pmi). Even-numbered and 100-series leda nodes,
+# plus lotta, MPI_Init successfully via singleton fallback. Without the
+# exclude, ~30% of array tasks land on the bad nodes and produce empty
+# fragments.
+: "${EXCLUDE_NODES:=leda23,leda25,leda27,leda29,leda31,leda33,leda35,leda37,leda39,leda41,leda43,leda45}"
 echo "[$(date)] Submitting array of $N_CHUNKS tasks (concurrency $CONCURRENCY, --time $TIMELIMIT, --cpus-per-task $PARALLEL)"
 ARRAY_ID=$(sbatch --parsable \
     --time="$TIMELIMIT" \
     --cpus-per-task="$PARALLEL" \
     --array="1-${N_CHUNKS}%${CONCURRENCY}" \
+    --exclude="$EXCLUDE_NODES" \
     --chdir="$OUT/logs" \
     --export=CHUNK_DIR="$OUT/chunks",WORK_ROOT="$OUT/work",FRAG_DIR="$OUT/fragments",SCRIPT_DIR="$HERE",PARALLEL="$PARALLEL" \
     "$HERE/array.sbatch")
@@ -98,19 +106,21 @@ echo "[$(date)] Array job id: $ARRAY_ID"
 # Stage 4: dependent merge — cat all fragments into the final DB.
 # `--dependency=afterany` so partial fragments still get assembled if
 # some tasks fail (the operator can re-run only the failed array indices).
+# Wrap explicitly with `bash -c`: SLURM's --wrap defaults to /bin/sh (dash on
+# this host), which rejects `set -o pipefail`.
 MERGE_ID=$(sbatch --parsable \
     --job-name=ecod-db-merge \
     --time=00:30:00 \
     --mem=2G \
     --dependency=afterany:"$ARRAY_ID" \
     --chdir="$OUT/logs" \
-    --wrap="
+    --wrap="bash -c '
 set -euo pipefail
 echo \"[\$(date)] Merging fragments...\"
-find \"$OUT/fragments\" -name 'fragment_*.frag' | sort -V | xargs cat > \"$OUT/metamatricesDB\"
+find \"$OUT/fragments\" -name fragment_\\*.frag | sort -V | xargs cat > \"$OUT/metamatricesDB\"
 echo \"[\$(date)] metamatricesDB: \$(stat -c %s \"$OUT/metamatricesDB\") bytes\"
-echo \"[\$(date)] Entries: \$(grep -c '\.ssd' \"$OUT/metamatricesDB\")\"
-")
+echo \"[\$(date)] Entries: \$(grep -c \\.ssd \"$OUT/metamatricesDB\")\"
+'")
 echo "[$(date)] Merge job id: $MERGE_ID (afterany)"
 
 echo
