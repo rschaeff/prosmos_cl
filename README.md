@@ -70,9 +70,11 @@ Note: the conda `mpicxx` at `/sw/apps/Anaconda3-2023.09-0/bin/mpicxx` is broken 
 `searchMatrix` (no MPI):
 ```
 cd searchMatrix/src
-g++ searchMatrix.cpp -o ../build/searchmatrix
+g++ -DSILENT searchMatrix.cpp -o ../build/searchmatrix
 ```
 Builds clean against g++ 11 (warnings only — `%d` vs pointer/`size_t` format mismatches; cosmetic). The result is a 64-bit native binary at `searchMatrix/build/searchmatrix`.
+
+`-DSILENT` redirects stdout to `/dev/null` at startup. The original source has 200+ leftover debug `cout`/`printf` calls inside the per-DB-entry match loop; on the 710k-entry F70 DB that's ~85 MB of stdout per query (measured), which crippled v1/v2 sweeps via NFS I/O contention before we moved logs to compute-node local `/tmp`. The flag eliminates the write entirely without touching the call sites. Errors still surface via `cerr`. Drop the flag if you want the original verbose debug output for a one-off invocation. Note: do NOT enable `-O2` together with this build — it surfaces a pre-existing glibc FORTIFY check inside `searchControl.h` (a `strcpy`/`sprintf` overflow that the original release tolerated under no-opt).
 
 The source as released does not compile on modern g++ until one duplicate parameter name is fixed: `searchControl.h:30` declared `searchM(...)` with two parameters both named `a`, which older g++ tolerated but g++ ≥ ~6 rejects as a conflicting declaration. The second `a` (the `vector<matrixElment>&` one) has been renamed to `totalele` to match the existing definition at line 1628.
 

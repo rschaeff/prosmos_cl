@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <iomanip>
 #include <string>
+#ifdef SILENT
+#include <cstdio>
+#endif
 #include "elecol.h"
 #include "searchControl.h"
 #include "Fpass.h"
@@ -21,6 +24,17 @@
 using namespace std;
 int main(int argc , char *argv[])
 {
+#ifdef SILENT
+  // searchControl.h has 200+ leftover debug cout/printf calls inside the
+  // per-DB-entry match loop; on a 710k-entry DB that's tens of millions of
+  // small writes per query. Redirect stdout once at startup -- both cout and
+  // printf hit fd 1, so this catches them all without touching the call sites.
+  // cerr (fd 2) is preserved so real errors still surface. usage/arg-error
+  // messages above were also cout, but those exit(0) anyway and the caller
+  // only inspects hit count + rc, so losing them is fine.
+  FILE *silent_fp = freopen("/dev/null", "w", stdout);
+  (void)silent_fp;
+#endif
   bool judge1 = false;
   bool judge2 = false; 
   char **interActionM;
