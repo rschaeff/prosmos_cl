@@ -2,3 +2,6 @@ generateMatrix/build/
 searchMatrix/build/
 *.o
 *.log
+
+# Throwaway artifacts from operational smoke runs
+example/ssp_design_targets/queries_enum_retry/
