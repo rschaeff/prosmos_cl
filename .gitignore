@@ -5,3 +5,7 @@ searchMatrix/build/
 
 # Throwaway artifacts from operational smoke runs
 example/ssp_design_targets/queries_enum_retry/
+
+# Auto-generated S3-S5 ProSMoS query corpus (regenerate via
+# enum/scripts/generate_enumerated_queries.py — 7048 files).
+example/ssp_enumerated/

@@ -364,5 +364,41 @@ Next:
 3. **RCC tie-breaking** (paper Appendix §1.2: pair-wise distance sum,
    then unique-y). Picks canonical representative among equivalent.
    Useful once we settle on the right equivalence.
-4. SSE-type (H/E) and interaction-type assignment.
-5. ProSMoS-format writer (`prosmos.py`).
+
+## Skeleton → ProSMoS query pipeline (S3-S5)
+
+`assignment.skeletons_to_records` closes the gap from "we have N
+hex-induced skeletons at dimension k" to "we have a corpus of ProSMoS
+query.txt files we can search against an ECOD metamatricesDB". For
+each skeleton it yields one `SSPRecord` per Cartesian H/E type
+assignment, with:
+
+- **Interaction matrix** derived from lattice adjacency, types, and
+  the sequence-direction alternation in `Skeleton.orientations`.
+  Codes follow the paper conventions plus the lowercase `u`/`v`
+  helix-helix variants seen in CG-2012 IA.txt (see module docstring).
+- **Sheet partition** as connected components of E-E lattice
+  adjacency: one `sheetS` directive per sheet of ≥ 2 strands, one
+  `sheetD` directive per pair of E SSEs in different sheets.
+- **Per-triple handedness** from `handedness_signature(skel)` — one
+  directive per (i, j, k) triple with non-zero signed triple product.
+  Planar acyclic shapes whose triples are all coplanar emit no
+  handedness directives, matching the looser-search intent.
+- **Length constraints** via `prosmos.write_query` (per-SSE, defaults
+  E ≥ 5, H ≥ 8, max 1000 — see [[feedback-prosmos-query-length]]).
+
+The driver `scripts/generate_enumerated_queries.py` writes the full
+S3-S5 corpus to `../example/ssp_enumerated/queries_typed/sN/` (gitignored
+because the 7,048 files are reproducible from this script):
+
+| Dim | Skeletons | × 2^N typings | = queries |
+|---:|---:|---:|---:|
+| 3 | 5    | 8   |    40 |
+| 4 | 42   | 16  |   672 |
+| 5 | 198  | 32  | 6,336 |
+| total |  |  | **7,048** |
+
+This is the S5-bounded scope. Extending to higher N is the same code
+path — `enumerate_skeletons(6)` already returns 2,372 skeletons in
+under a second; the only added cost is the per-skeleton Cartesian
+explosion (S6 → 2,372 × 64 = 151,808 queries).
