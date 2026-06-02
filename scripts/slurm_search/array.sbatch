@@ -23,36 +23,47 @@ set -uo pipefail
 : "${OUT:?missing OUT}"
 : "${SEARCH:=/home/rschaeff/dev/prosmos_cl/searchMatrix/build/searchmatrix}"
 
-# Pick this task's query from the manifest
-QUERY=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$QUERY_LIST")
+# Pick this task's query from the manifest. submit.sh splits the manifest
+# into chunks (SLURM's MaxArraySize is ~1001) and passes the chunk's base
+# OFFSET; this task's global line is SLURM_ARRAY_TASK_ID + OFFSET.
+: "${OFFSET:=0}"
+LINE=$((SLURM_ARRAY_TASK_ID + OFFSET))
+QUERY=$(sed -n "${LINE}p" "$QUERY_LIST")
 if [ -z "$QUERY" ] || [ ! -f "$QUERY" ]; then
-    echo "no query at line ${SLURM_ARRAY_TASK_ID} of $QUERY_LIST" >&2
+    echo "no query at line ${LINE} of $QUERY_LIST" >&2
     exit 2
 fi
 NAME=$(basename "$QUERY" .query)
 
-# Per-task work area. searchmatrix unconditionally writes to <cwd>/../sheetbug/
-# and silently exit(0)s if it can't open that file, so each task needs its own
-# writable parent. Using a per-task subdir avoids cross-task collisions.
-WORK="$OUT/work/${SLURM_ARRAY_TASK_ID}"
+# Per-task work area: use the compute node's local /tmp for the run dir AND
+# for the stdout log. The earlier all-NFS layout strangled searchmatrix on
+# I/O contention (logs are O(GB) of verbose per-entry chatter -- the v3 smoke
+# took 60+ min crawling on the head node before we moved logs to local /tmp,
+# then ran in 18-30 min). searchmatrix also writes to <cwd>/../sheetbug/ and
+# silently exit(0)s if it can't, so the local-/tmp parent must have that dir.
+LOCAL="/tmp/sm_${LINE}_$$"
+mkdir -p "$LOCAL/run" "$LOCAL/sheetbug"
 HITS="$OUT/hits/${NAME}"
-mkdir -p "$WORK/run" "$HITS" "$OUT/parts" "$OUT/logs"
-cd "$WORK/run"
+mkdir -p "$HITS" "$OUT/parts" "$OUT/logs"
+cd "$LOCAL/run"
 
 START=$(date +%s)
-"$SEARCH" "$QUERY" "$DB" "$HITS" > "$OUT/logs/${NAME}.stdout" 2>&1
+"$SEARCH" "$QUERY" "$DB" "$HITS" > "$LOCAL/stdout.log" 2>&1
 RC=$?
 END=$(date +%s)
 ELAPSED=$((END - START))
 
-# Hit count is the only reliable success signal — searchmatrix exits 0 even on
+# Hit count is the only reliable success signal -- searchmatrix exits 0 even on
 # parse errors and on its silent sheetbug-failure exit path.
 HIT_COUNT=$(find "$HITS" -maxdepth 1 -type f | wc -l)
 
 printf '%s\t%d\t%d\t%d\n' "$NAME" "$ELAPSED" "$RC" "$HIT_COUNT" \
-    > "$OUT/parts/${SLURM_ARRAY_TASK_ID}.tsv"
+    > "$OUT/parts/${LINE}.tsv"
 
-# Clean up the sheetbug debug output (large, useless after the run)
-rm -rf "$WORK/sheetbug"
+# Save the last 200 lines of the searchmatrix log for forensics, drop the rest.
+tail -200 "$LOCAL/stdout.log" > "$OUT/logs/${NAME}.tail" 2>/dev/null || true
+
+# Clean local scratch (avoid filling /tmp on compute nodes with many tasks).
+rm -rf "$LOCAL"
 
 echo "[$(date +%H:%M:%S)] ${NAME}: ${ELAPSED}s rc=${RC} hits=${HIT_COUNT}" >&2
