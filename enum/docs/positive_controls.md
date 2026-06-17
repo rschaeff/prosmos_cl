@@ -6,7 +6,7 @@ and the minimal Rossmann-like motif (RLM, Medvedev et al. 2021,
 [10.1016/j.jmb.2020.166788](https://doi.org/10.1016/j.jmb.2020.166788)).
 Both controls use the v4 sweep results
 (`results/v4_ecod_manual_reps_summary.tsv`) and per-query hit dirs in
-`~/work/ecod_search_v4/hits/`.
+`~/work/prosmos_2026/ecod_search_v4/hits/`.
 
 ## Why these controls
 
@@ -128,5 +128,5 @@ WHERE d.manual_rep AND df.file_type_id=2 AND df.status='complete'
 ```
 
 The hit-list of a query is the basename-stripped contents of its
-`~/work/ecod_search_v4/hits/<query_name>/*.txt` dir; intersection with the
+`~/work/prosmos_2026/ecod_search_v4/hits/<query_name>/*.txt` dir; intersection with the
 SQL output above gives the recovery count.

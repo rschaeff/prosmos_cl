@@ -11,9 +11,9 @@
 set -uo pipefail
 
 START_OFFSET="${1:?missing START_OFFSET}"
-OUT=$HOME/work/ecod_search_v4_s6
+OUT=$HOME/work/prosmos_2026/ecod_search_v4_s6
 QLIST=$OUT/queries.list
-DB=$HOME/work/ecod_db_manual_v4/metamatricesDB
+DB=$HOME/work/prosmos_2026/ecod_db_manual_v4/metamatricesDB
 HERE=$(cd "$(dirname "$0")" && pwd)
 N=151808
 CHUNK=1000

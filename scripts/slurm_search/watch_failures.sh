@@ -4,13 +4,13 @@
 # tail). One-shot; loop externally with `watch` or a `while sleep`.
 #
 # Usage:
-#   ./watch_failures.sh [OUT_DIR]      # default: ~/work/ecod_search_v3
+#   ./watch_failures.sh [OUT_DIR]      # default: ~/work/prosmos_2026/ecod_search_v3
 #
 # Exits 0 if no failures (or no parts yet), 1 if any rc!=0 are present.
 
 set -u
 
-OUT="${1:-$HOME/work/ecod_search_v3}"
+OUT="${1:-$HOME/work/prosmos_2026/ecod_search_v3}"
 PARTS="$OUT/parts"
 LOGS="$OUT/logs"
 

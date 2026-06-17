@@ -300,5 +300,5 @@ within ~2 weeks).
 - Dustin Schaeffer (dustin.schaeffer@gmail.com) for question on
   methodology, enum design, or what counts as a "real" PDB absence
 - The leda-side in-flight stage 1 sweep state is in
-  `~rschaeff/work/ecod_search_v4_negspace{,_part2}/` — ask if you need
+  `~rschaeff/work/prosmos_2026/ecod_search_v4_negspace{,_part2}/` — ask if you need
   the survivor list before mine completes
