@@ -291,6 +291,15 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
                IntMnumEl.clear();
                intElecol.clear();
                mrow = intMnumofele(IntMnumEl,intMline,intElecol,pid ) ;
+               if (mrow < 0) {
+                   // Malformed DB block (orphan matrix or empty line where header
+                   // expected). Reset state and try to recover sync by treating
+                   // the next line as a fresh start; don't increment readLincon
+                   // here so the next non-sheet line will retry as header.
+                   judge1 = false;
+                   judge2 = false;
+                   continue;
+               }
                cout<<"the step 1 "<<endl;
                cout<<"the mrow is "<<mrow<<endl;
               // cout<<"the intMline is "<<intMline<<endl;
@@ -1139,12 +1148,17 @@ void searchControl::getInterActionM(char ** intM,int mrow , char *oneline,vector
        if(oneline[index] == '*')
        {
            i++;
+           // Guard against matrix-line longer than expected (more '*' markers than mrow).
+           // Without this, intM[i][j] writes past the heap allocation of mrow rows.
+           if (i >= mrow) break;
            j = i;
-           intM[i][j] = oneline[index]; 
+           intM[i][j] = oneline[index];
            j++;
        }
        else
        {
+           // Same guard for row-internal characters that would exceed the row width.
+           if (i < 0 || i >= mrow || j >= mrow) { index++; continue; }
            intM[i][j] = oneline[index];
            j++;
        }
@@ -1200,11 +1214,26 @@ int searchControl::intMnumofele(vector<matrixElment> &b  , char *oneline,vector<
        cout<<"the yimatrixoutput file is wrong, please check "<<endl;
        exit(0);
     }
-    temp.assign(cpline,0,31);
-    strcpy(pid,temp.c_str());
+    // Validate that this looks like a header line (starts with digit-sequence + ".ssd").
+    // Without this check, intMnumofele can be called on orphan matrix lines when the
+    // DB has malformed blocks (header missing). The 31-byte strcpy then overflows the
+    // 20-byte pid buffer with matrix data, the while-loop below has no upper bound
+    // (no space found), and we walk off into adjacent memory -> SIGSEGV/SIGABRT
+    // depending on what got clobbered.
+    if (cpline.find(".ssd") == string::npos || !isdigit((unsigned char)cpline[0]))
+    {
+       cerr << "intMnumofele: non-header line detected ("
+            << cpline.substr(0, 40) << "...) -- DB has malformed block; skipping" << endl;
+       return -1;
+    }
+    // pid is a 20-byte buffer in oneprocess() (line 195). Copying 31 chars overflows
+    // it. Read at most 19 chars (leaving room for the null terminator).
+    temp.assign(cpline,0,19);
+    strncpy(pid, temp.c_str(), 19);
+    pid[19] = '\0';
     countpid++;
     int u=0;
-    while(pid[u]!=' ')
+    while(u < 19 && pid[u]!=' ')
       u++;
     pid[u] = '\0';
     cout<<"the pid is "<<pid<<endl;
