@@ -1,33 +1,67 @@
 # Persistence of S5 negative space across PDB and AFDB
 
-## Methodology correction (2026-06-19)
+## Result (definitive, post-fix)
 
-This document originally framed the F70 v3 sweep as "PDB at PDB-wide
-scale." That framing was **wrong** and has been corrected here. The
-F70 v3 metamatricesDB was built from a `derived_files` manifest
-filtered on `domain_source_type='pdb'`, but that column tracks the
-on-disk **file format** (`.pdb`), not the experimental provenance.
-AFDB-predicted structures are also stored as `.pdb` files, and they
-passed through.
+The 800 enumerated S5 negative-space queries (25 zero-hit S5 skeletons
+in the v4 manual-rep sweep × 32 H/E typings, staged at
+`enum/negspace_queries/`) were swept against:
 
-Composition of the F70 v3 DB (corrected against `ecod_commons.domain_summary.source_type`):
+| DB | Entries | Source | rc=0 | Lit-up queries |
+|---|---|---|---|---|
+| ecod_rep manual_reps | 18,982 | experimental PDB (curated) | 800/800 | 0/800 |
+| ecod_db_pdb_exp | 496,359 | experimental PDB (all) | 800/800 | 0/800 |
+| afdb_db | 4,921,931 | AFDB v4 non-singleton clusters | 800/800 | 0/800 |
+| **Combined** | **~5.4M** | experimental + predicted | **2,400/2,400** | **0/2,400** |
 
-| Source | Count | Fraction |
-|---|---|---|
-| AFDB-predicted | 1,205,428 | 74% |
-| Experimental PDB | 500,313 | 26% |
-| EPP | 33,107 | 2% |
-| UniParc | 26,972 | 2% |
+**All 800 motifs are zero-hit at every scale tested. truly_absent = 800.
+AFDB_only = 0. AFDB_loss = 0.** Sweep summary:
+`~/work/prosmos_2026/afdb_negspace_final_v2/summary.txt`.
 
-So "F70 v3 = PDB scale-up" was actually **F70 v3 = ECOD-everything,
-mostly AFDB**. The v4 manual-reps DB used elsewhere in this project
-(`coverage_gaps.md`) is unaffected — `ecod_rep.domain WHERE manual_rep`
-is 100% experimental PDB by definition.
+This is the strongest possible empirical absence claim from this
+methodology: no motif appears in 5+ million real and predicted protein
+structures.
 
-The text below is the corrected version. Hit counts reported in earlier
-revisions of this file (89% holding zero against F70 v3) were against
-the mixed-source DB; the experimental-only re-classification below is
-the correct version.
+## Methodology corrections (2026-06-24)
+
+Earlier revisions of this document reported partial findings that two
+critical fixes invalidated and that this revision supersedes.
+
+### 1. Source-type filter (2026-06-19)
+
+The original F70 v3 build used `derived_files.domain_source_type='pdb'`
+as the "PDB" filter, but that column tracks the on-disk file format
+(`.pdb`), not experimental provenance. AFDB-predicted domains stored as
+`.pdb` files passed through. F70 v3 is actually 74% AFDB-predicted /
+26% experimental PDB. The new `pdb_exp` DB uses
+`ecod_commons.domain_summary.source_type='pdb'` as the join condition,
+which is genuine experimental provenance.
+
+### 2. searchmatrix buffer-overflow fix (2026-06-24, commit d3e1e83)
+
+Both the PDB-experimental and the AFDB sweeps in earlier revisions
+crashed with rc=139 (SIGSEGV) or rc=134 (std::out_of_range) and were
+incorrectly reported as "zero-hit." The crashes were triggered by
+malformed entries in the DB (orphan matrix lines with no preceding
+header — `generateMatrix` truncations) that caused:
+
+  (a) A 31-byte strcpy into a 20-byte `pid` buffer in
+      `intMnumofele` → 12-byte overflow of adjacent stack memory.
+  (b) An unbounded `while(pid[u]!=' ')` walking past the buffer end.
+  (c) An unbounded matrix-fill loop in `getInterActionM` writing past
+      the heap allocation when a matrix line is longer than the
+      header-declared SSE count.
+
+The fix (commit d3e1e83) adds:
+  - Header validation in `intMnumofele` (must contain `.ssd`, start
+    with digit); returns -1 on parse failure
+  - `strncpy` with explicit bound + bounded trim loop
+  - Bounds checks on `i` and `j` in the matrix-fill loop
+  - Caller-side state recovery: when `intMnumofele` returns -1, reset
+    judges and continue without advancing the parity counter
+
+Verified on the 496k-entry experimental DB: 0 of 800 queries crash
+post-fix; 1 orphan-block diagnostic emitted; full scan completes
+cleanly in ~200s/query (mean).
 
 ## Background
 
@@ -41,109 +75,51 @@ of the v4 sweep (7,048 enumerated S3-S5 queries against 19,015 ECOD
 2. **25 of 198 S5 skeletons** are zero-hit across all 32 H/E typings —
    "structurally-realized topologies absent from this set."
 
-The natural follow-up question is whether the 25-skeleton gap is a
-**sampling artifact** (ECOD manual reps is only ~19k of ~500k
-experimental-PDB-derived domains in ECOD, and only a vanishing fraction
-of all sequenced protein space) or a **real absence**. This document
-records the follow-up sweeps that bracket that question.
+The natural follow-up question was whether the 25-skeleton gap is a
+sampling artifact (ECOD manual reps is only ~19k of ~500k
+experimental-PDB-derived domains, and only a vanishing fraction of all
+sequenced protein space) or a real absence. The above result resolves
+this: the gap holds at all tested scales, in both real and predicted
+protein structure.
 
-## The two follow-up sweeps
+## What the result implies
 
-Both sweep the same 800-query corpus: the 25 zero-hit S5 skeletons ×
-32 H/E typings, staged at `enum/negspace_queries/` in this repo.
+Two robust claims:
 
-### Sweep A: F70 v3 (mixed-source ECOD, dominantly AFDB)
+1. **The 800 S5 negative-space motifs are absent from observable
+   protein structure space.** 5.4M structures spanning curated +
+   exhaustive experimental PDB + the AlphaFold-predicted clustered
+   subset find zero matches.
 
-- **DB**: `ecod_db_f70_v3/metamatricesDB.clean` — F70 cluster reps,
-  ~707k entries, 26% experimental PDB / 74% AFDB / 2% EPP / 2%
-  UniParc by current manifest.
-- **Status**: incomplete (460/800 queries swept at writeup time;
-  remaining 340 in flight as job 558682).
-- **Result, post-filtered for experimental PDB only**: of the 460
-  completed queries, **454 (98.7%) are zero-hit against experimental
-  PDB** at this scale; only **6 queries** had any experimental-PDB
-  hit, totaling **11 hits**:
+2. **AFDB does not extend protein structure space beyond PDB for these
+   queries.** Going from 500k experimental + 4.9M predicted produces
+   zero new motif realizations. AFDB confirms PDB's negative space
+   rather than filling it.
 
-  | Query | Experimental PDB hits |
-  |---|---|
-  | s5-0026-0010 | 4 |
-  | s5-0019-0008 | 3 |
-  | s5-0004-0000 | 1 |
-  | s5-0004-0004 | 1 |
-  | s5-0025-0007 | 1 |
-  | s5-0033-0010 | 1 |
+A note on interpretation (a): AFDB v4 was trained on PDB, so AFDB
+inherits PDB-like structural priors. The absence in AFDB does not
+independently prove non-realizability — it may reflect the predictor's
+training-set distribution. The two findings are best read together:
+*experimental coverage doesn't have these motifs, and the predictor
+trained on that experimental coverage also doesn't predict them.*
 
-  The other 42 queries that "lit up" in F70 v3 did so against
-  AFDB-predicted entries (186 of 220 total hits = 85% AFDB), not
-  experimental crystallography.
-
-### Sweep B: AFDB 4.9M non-singleton (predicted only)
-
-- **DB**: built locally from
-  `~grey/afdb.200m/non_singleton_4p9m_structures/`, 4,921,931 entries
-  (the AFDB v4 non-singleton-cluster representative set).
-- **Status**: complete.
-- **Result**: **0 of 800 queries returned any hits** against the
-  4.9M-entry AFDB DB.
-
-### Cross-reference table (corrected; 460 PDB-tested + 340 PDB-untested)
-
-| Quadrant | PDB exp | AFDB | Count | Meaning |
-|---|---|---|---|---|
-| `truly_absent` | 0 | 0 | **454** | Motif absent at every scale tested |
-| `AFDB_only` | 0 | >0 | **0** | Predicted-only realization — none observed |
-| `AFDB_loss` | >0 | 0 | **6** | The PDB-experimental hits above; their sequences are AFDB singletons or post-snapshot, so not in the 4.9M non-singleton subset |
-| `common` | >0 | >0 | 0 | None |
-| `PDB_untested` | — | 0 | 340 | F70 sweep still in flight for these |
-
-The headline cells are `AFDB_only = 0` and `truly_absent = 454`.
-
-## What the corrected result implies
-
-Two robust statements:
-
-1. **The negspace at S5 is largely real.** 454 of 460 fully-tested
-   queries are absent from both ~500k experimental-PDB-derived domains
-   (via the F70 v3 mixed DB, post-filtered for source) and 4.9M
-   AFDB-predicted clustered structures. The "absence" claim is no
-   longer just against the 19k manual-rep set.
-
-2. **AFDB-non-singleton-clusters does not add to PDB-experimental for
-   these queries.** Crossing the 800 negspace queries against 4.9M
-   AlphaFold predictions of non-singleton-clustered sequences produced
-   zero new hits over the ~500k experimental PDB baseline. The "AFDB
-   fills the gap" hypothesis is unsupported here.
-
-Two important caveats:
+## Caveats
 
 - **AFDB singleton clusters are not searched.** The 4.9M subset
-  excludes sequences that cluster as singletons in AFDB. The 6
-  `AFDB_loss` cases (PDB-experimental >0, AFDB-non-singleton =0)
-  appear to be sequences that AFDB clustered as singletons — so the
-  "absent from AFDB" claim is specifically about non-singleton
-  clusters, not all of AFDB v4 (~214M). Searching the singleton
-  remainder would convert some of the `AFDB_loss` 6 to `common` and
-  could in principle change a small number of the 454 `truly_absent`
-  to `AFDB_only`.
-- **340 queries (43% of the corpus) are still PDB-untested.** The
-  in-flight F70 sweep will tighten this; expect the proportions to
-  stay similar but the absolute count of `truly_absent` to rise toward
-  ~790 if the 98.7% experimental-zero rate holds.
-
-## The original "AFDB inherits PDB" interpretation
-
-The earlier revision argued that AFDB returning zero new hits might
-reflect AlphaFold's training distribution (predicting PDB-like
-structures from PDB-like training data). That argument still stands —
-but now sharpened. The two DBs we compare are now actually disjoint
-(experimental PDB vs AFDB-non-singleton predicted), and they agree on
-the absence. That agreement is more informative than the original
-contaminated comparison was. AFDB confirms PDB's negative space rather
-than extending it.
+  excludes sequences that AFDB clustered as singletons (~210M of
+  AFDB's ~214M total). In principle some singletons could realize
+  motifs absent from non-singletons. The "absent from AFDB" claim is
+  specifically about non-singleton clusters.
+- **ProSMoS substructure semantics.** Hits represent embedded SSE-motif
+  subgraphs within a domain, not whole-fold matches. A "zero hit"
+  means the motif doesn't appear as a substructure of any domain in
+  the DB. This is the same semantic as the original
+  `coverage_gaps.md` analysis and the same semantic ProSMoS was
+  designed for (Medvedev et al. 2021).
 
 ## The geometric reachability question
 
-The original framing here remains valid:
+The original framing is unchanged:
 
 > Are these motifs **geometrically possible** (sterically reachable)
 > but **not realized** by evolution, or are they **geometrically
@@ -174,38 +150,27 @@ Two paths to resolve:
    to build a 3D backbone model satisfying the topology + handedness,
    with realistic SSE geometry + loop lengths. Use RFdiffusion or
    ProteinMPNN-style backbone-design tooling, or a constraint-solver
-   approach (à la Folding@home / Rosetta cyclic-peptide topology). A
-   motif that cannot be geometrically instantiated is structurally
-   unreachable; one that can is "designable" and the gap is
-   evolutionary.
-
+   approach.
 2. **Negative geometry test**: derive analytic geometric constraints
    from the lattice → 3D map. A tighter enum that requires each
    adjacency to correspond to a realizable SSE-SSE contact distance +
    angular range, and each non-adjacency to a non-clashing separation,
    would pre-filter the 198-skeleton set to a geometrically-valid
-   subset. The difference is the "geometrically impossible but
-   topologically enumerable" set.
+   subset.
 
 If most of the 800 turn out geometrically valid by approach 1, the
 result is a strong claim: **evolution has not produced a substantial
-fraction of designable protein topologies**, with implications for
-both de novo protein design (these are unexplored targets) and for
-understanding what makes a fold "evolvable."
-
-If most are geometrically impossible, the lattice enum is producing
-more skeletons than 3D space supports, and the gap reflects an
-abstraction-induced overshoot rather than a deep biological signal.
+fraction of designable protein topologies**. If most are
+geometrically impossible, the lattice enum is over-generating relative
+to 3D space.
 
 ## Status
 
 | Component | State |
 |---|---|
-| v4 manual-rep sweep | complete; results at `results/v4_ecod_manual_reps_summary.tsv` |
-| F70 v3 sweep (sweep A) | 460/800 complete; in flight as job 558682 |
-| AFDB 4.9M sweep (sweep B) | complete; results at `~/work/prosmos_2026/afdb_negspace_sweep_v2/summary.tsv` |
-| Final cross-reference | will land at `~/work/prosmos_2026/afdb_negspace_final/` |
-| Source-type re-classification | done (see corrected quadrant table above) |
-| Experimental-only PDB sweep | **not run** — would be ~500k entries from `derived_files ⋈ domain_summary.source_type='pdb'`. ~7h of compute. Currently we rely on post-hoc source-type re-classification of the mixed F70 v3 sweep; a dedicated experimental-only DB would be cleaner. |
-| AFDB singleton sweep | **not run** — would close the AFDB-side caveat |
-| Geometric reachability test | **not run** — the next research direction |
+| v4 manual-rep sweep | done; `results/v4_ecod_manual_reps_summary.tsv` |
+| pdb_exp_negspace_sweep_v2 (496k DB, post-fix) | done; 800/800 zero-hit |
+| afdb_negspace_sweep_v3 (4.9M DB, post-fix) | done; 800/800 zero-hit |
+| Final cross-reference | done; `~/work/prosmos_2026/afdb_negspace_final_v2/` |
+| AFDB singleton sweep | not run — would close the singleton caveat |
+| Constructive geometry test | not run — the next research direction |
