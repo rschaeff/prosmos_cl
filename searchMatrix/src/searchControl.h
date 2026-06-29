@@ -1771,10 +1771,22 @@ void searchControl::printOuptfile(vector<fpass> &totalpass,vector<matrixElment> 
 {
    FILE *fileptr;
    vector<int> index;
-   char path1[50];
-   char pid1[50];
+   // The original 50-byte path1 overflows on hits-dir paths >49 chars (any
+   // realistic NFS output path). The overflow then corrupts pid1/pid2
+   // adjacent on the stack, and the subsequent strcat produces a garbled
+   // filename that fopen silently fails on (or writes to the wrong place),
+   // yielding "0 hits" sweep results even though the BFS found matches.
+   // Sized for a typical NFS path + filename + slack.
+   char path1[1024];
+   char pid1[64];
    char pid2[200];
-   strcpy(path1,path);
+   if (strlen(path) >= sizeof(path1) - sizeof(pid1)) {
+       cerr << "printOuptfile: hits-dir path too long ("
+            << strlen(path) << " bytes), refusing to write: " << path << endl;
+       return;
+   }
+   strncpy(path1, path, sizeof(path1) - 1);
+   path1[sizeof(path1) - 1] = '\0';
    cout<<"this is printOuptfile function "<<endl;
    cout<<"the pid is "<<pid<<endl;
    cout<<"the path1 is "<<path1<<endl;
