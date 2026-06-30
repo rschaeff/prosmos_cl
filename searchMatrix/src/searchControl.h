@@ -1214,13 +1214,14 @@ int searchControl::intMnumofele(vector<matrixElment> &b  , char *oneline,vector<
        cout<<"the yimatrixoutput file is wrong, please check "<<endl;
        exit(0);
     }
-    // Validate that this looks like a header line (starts with digit-sequence + ".ssd").
-    // Without this check, intMnumofele can be called on orphan matrix lines when the
-    // DB has malformed blocks (header missing). The 31-byte strcpy then overflows the
-    // 20-byte pid buffer with matrix data, the while-loop below has no upper bound
-    // (no space found), and we walk off into adjacent memory -> SIGSEGV/SIGABRT
-    // depending on what got clobbered.
-    if (cpline.find(".ssd") == string::npos || !isdigit((unsigned char)cpline[0]))
+    // Validate that this looks like a header line. The discriminator is the
+    // ".ssd" filename suffix — header lines have it (entry IDs end in .ssd),
+    // orphan matrix lines do not (they are packed interaction codes like
+    // "*u---v---*..."). The original strict digit-prefix check rejected AFDB
+    // headers (named e.g. "dpam_A0A011QYY6_nD2.ssd") and made AFDB DB scans
+    // return 0 hits immediately. Just checking for .ssd works for both
+    // ECOD-style numeric IDs and AFDB-style alphanumeric IDs.
+    if (cpline.find(".ssd") == string::npos)
     {
        cerr << "intMnumofele: non-header line detected ("
             << cpline.substr(0, 40) << "...) -- DB has malformed block; skipping" << endl;
