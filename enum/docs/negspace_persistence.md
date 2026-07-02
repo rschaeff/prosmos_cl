@@ -21,10 +21,15 @@ This is the strongest possible empirical absence claim from this
 methodology: no motif appears in 5+ million real and predicted protein
 structures.
 
-## Methodology corrections (2026-06-24)
+## Methodology corrections
 
-Earlier revisions of this document reported partial findings that two
-critical fixes invalidated and that this revision supersedes.
+Earlier revisions of this document reported partial findings that four
+independent methodology/code bugs invalidated. Each of the four was
+independently re-verified against the 800-query negspace set and the
+result held every time — the negspace claim is robust to the fixes
+because the queries genuinely find zero matches (nothing to drop, nothing
+to crash on, etc.). The corrections listed here are the ones that made
+the claim safe to state definitively.
 
 ### 1. Source-type filter (2026-06-19)
 
@@ -32,36 +37,59 @@ The original F70 v3 build used `derived_files.domain_source_type='pdb'`
 as the "PDB" filter, but that column tracks the on-disk file format
 (`.pdb`), not experimental provenance. AFDB-predicted domains stored as
 `.pdb` files passed through. F70 v3 is actually 74% AFDB-predicted /
-26% experimental PDB. The new `pdb_exp` DB uses
+26% experimental PDB. The `pdb_exp` DB uses
 `ecod_commons.domain_summary.source_type='pdb'` as the join condition,
 which is genuine experimental provenance.
 
-### 2. searchmatrix buffer-overflow fix (2026-06-24, commit d3e1e83)
+### 2. searchmatrix crash bugs (2026-06-24, commit d3e1e83)
 
-Both the PDB-experimental and the AFDB sweeps in earlier revisions
-crashed with rc=139 (SIGSEGV) or rc=134 (std::out_of_range) and were
-incorrectly reported as "zero-hit." The crashes were triggered by
-malformed entries in the DB (orphan matrix lines with no preceding
-header — `generateMatrix` truncations) that caused:
+Both PDB-experimental and AFDB sweeps in earlier revisions crashed with
+rc=139 (SIGSEGV) or rc=134 (std::out_of_range) and were misreported as
+"zero-hit". Root cause: two buffer overflows triggered by malformed DB
+entries (orphan matrix lines without preceding header — `generateMatrix`
+truncations).
 
-  (a) A 31-byte strcpy into a 20-byte `pid` buffer in
-      `intMnumofele` → 12-byte overflow of adjacent stack memory.
-  (b) An unbounded `while(pid[u]!=' ')` walking past the buffer end.
-  (c) An unbounded matrix-fill loop in `getInterActionM` writing past
-      the heap allocation when a matrix line is longer than the
-      header-declared SSE count.
+Fixes:
+  - Header validation in `intMnumofele`, `strncpy` with bound, bounded
+    trim loop.
+  - Bounds checks on `i`/`j` in `getInterActionM` matrix-fill loop.
+  - Caller-side state recovery on parse failure.
 
-The fix (commit d3e1e83) adds:
-  - Header validation in `intMnumofele` (must contain `.ssd`, start
-    with digit); returns -1 on parse failure
-  - `strncpy` with explicit bound + bounded trim loop
-  - Bounds checks on `i` and `j` in the matrix-fill loop
-  - Caller-side state recovery: when `intMnumofele` returns -1, reset
-    judges and continue without advancing the parity counter
+### 3. Path-buffer overflow (2026-06-29, commit 0d9e2b0)
 
-Verified on the 496k-entry experimental DB: 0 of 800 queries crash
-post-fix; 1 orphan-block diagnostic emitted; full scan completes
-cleanly in ~200s/query (mean).
+Third searchmatrix bug: `char path1[50]` in `printOuptfile` overflows on
+any hits-dir path >49 chars. `fopen` then silently fails or writes to a
+corrupted path — every hit write dropped, sweep reports 0 hits despite
+BFS finding matches. Fatal on `prosmos_2026/` NFS paths (73+ chars).
+Fix: 1024-byte buffer + guard + `strncpy`.
+
+**The 800-query negspace claim held before this fix and still holds:**
+the queries genuinely have zero matches, so the bug had nothing to drop.
+Independently re-verified with the path-fix binary: s5-0001-0000 vs
+PDB-exp = 0 hits (matches the pre-fix result).
+
+### 4. Over-strict header validation (2026-06-30, commit c2904f5)
+
+Fourth searchmatrix bug: my Bug 2 header-validation fix required
+`isdigit(cpline[0])`, which rejects AFDB-style IDs like
+`dpam_A0A011QYY6_nD2.ssd`. Every AFDB entry was skipped, search
+returned rc=0 in 0 seconds with 0 hits. Fix: `.ssd` suffix alone is
+the discriminator (matrix lines never contain `.ssd`; both digit-led
+and letter-led headers do).
+
+**The 800-query negspace claim held before this fix too**: even though
+the bug reduced AFDB sweeps to no-op, the queries genuinely find zero
+matches when actually scanned. Independently re-verified on
+s5-0014-0003 vs AFDB DB post-fix: legitimate 12-hit match found on a
+non-negspace query, confirming the scan is real, so the parallel 0-hit
+results on the 800 negspace queries mean genuine absence.
+
+### Canonical binary
+
+`searchMatrix/build/searchmatrix` at commit **c2904f5** is the
+canonical binary. Earlier binaries hit at least one of the four bugs
+and produce misleading results. See `reference_searchmatrix_fix`
+auto-memory for the diagnostic signature of each.
 
 ## Background
 
@@ -172,5 +200,18 @@ to 3D space.
 | pdb_exp_negspace_sweep_v2 (496k DB, post-fix) | done; 800/800 zero-hit |
 | afdb_negspace_sweep_v3 (4.9M DB, post-fix) | done; 800/800 zero-hit |
 | Final cross-reference | done; `~/work/prosmos_2026/afdb_negspace_final_v2/` |
+| **Full-S5 sweep — PDB-exp** (all 6,336 S5 queries) | **in flight** — supports the three-panel comparable hit-grid figure; at writeup ~52% complete, ~1,380 lit-up |
+| **Full-S5 sweep — AFDB** (all 6,336 S5 queries) | **in flight** — same purpose; at writeup ~48% complete, ~1,079 lit-up |
+| Three-panel comparable hit grid | pending — needs both full-S5 sweeps to finish |
+| Low-hit-skeleton spotlight (5–10 skels + PyMOL renders) | pending — needs the full-S5 data |
 | AFDB singleton sweep | not run — would close the singleton caveat |
 | Constructive geometry test | not run — the next research direction |
+
+**Scope shift note:** the negspace-800-query claim (this doc's
+headline) is separate from the broader "show the full 6,336-query
+landscape" visualization work now in flight. The negspace remains
+the central finding; the full-S5 sweeps provide context — they show
+what lit-up queries look like as the DBs scale up, giving the reader
+a visual sense of where the negspace 25-skeleton block sits relative
+to the rest of S5 topology space. See `session_2026_06.md` Phase 12
+for the operational details of the full-S5 sweeps.
