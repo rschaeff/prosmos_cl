@@ -40,6 +40,21 @@ Each script has an `SP` constant pointing at a scratch dir holding the
 
 > PyMOL needs `PYMOL_PATH=~/.pymol` (license) and `OMP_PROC_BIND` unset.
 
+### Full-scale gallery (all occupied cells)
+Every occupied cell gets a composite figure — a **unitypical** exemplar or a
+**promiscuous** top-3 montage — behind a clickable matrix index. Built on the
+SLURM cluster; working dir `~/work/prosmos_2026/s5_gallery/` (structures staged
+to NFS so compute nodes don't need `/usr2/pdb`). Scripts `gallery_*.py`:
+
+| step | script | notes |
+|------|--------|-------|
+| spec | `gallery_build_full_spec.py` | 2,328 cells, 5,404 renders, 2,045 PDBs; K=3 |
+| render | `gallery_render.py` (sbatch array, `pymol -cq`) | per-(cell,domain) 400px PNG; PDB-sorted for structure reuse; idempotent |
+| assemble | `gallery_assemble.py` (sbatch array) | banner (schematic+matrix) + exemplar row → `cells/{sk}_{ty}.png` |
+| site | `gallery_build_site.py` | `site/index.html`: matrix → click cell → composite; 256-colour PNGs, ~85 MB static site |
+
+Full gallery is not committed (≈85 MB of images); it lives under the work dir.
+
 ## Findings
 **Time (`s5_timeseries*`).** Distinct occupied cells reach 90% of their final
 extent by ~2009 and plateau at ~2,326, while cumulative hits keep climbing
