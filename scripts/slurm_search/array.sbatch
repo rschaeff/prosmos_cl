@@ -5,6 +5,10 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --output=%x.%A_%a.out
 #SBATCH --error=%x.%A_%a.err
+# Default to all partitions the 2G/1cpu task fits, so chained chunks spread
+# across the cluster instead of starving on the busy 96GB default. submit.sh's
+# PARTITION env still overrides this (command-line --partition wins).
+#SBATCH --partition=192GB,All,96GB
 #
 # ProSMoS searchmatrix array job. One query per array task. Submit via
 # scripts/slurm_search/submit.sh (which sets --array and --export).
