@@ -19,6 +19,9 @@ from collections import defaultdict, Counter
 SP = Path("/tmp/claude-1219/-home-rschaeff-dev-prosmos-cl/02f20625-920b-46f1-a2bf-bc06d84727af/scratchpad")
 NSK, NTY = 198, 32
 hit_re = re.compile(r"s5-(\d{4})-(\d{4})/pdb0*(\d+)\.txt$")
+# For the exemplar gallery: keep up to M_STORE experimental domains for each of
+# the top TOP_GROUPS T-groups per cell (breadth = groups, depth = domains/group).
+TOP_GROUPS, M_STORE = 20, 6
 
 
 def hgroup(tid):  # "11.1.1" -> "11.1"
@@ -62,6 +65,7 @@ def main():
         tcnt = Counter()
         h_ex = {}
         t_ex = {}
+        t_doms = defaultdict(list)   # T-group -> [(did, euid), ...] experimental only
         for e in euids:
             if e not in cls:
                 continue
@@ -73,12 +77,18 @@ def main():
                 h_ex[H] = (did, e)
             if T not in t_ex or (did.startswith("e") and not t_ex[T][0].startswith("e")):
                 t_ex[T] = (did, e)
+            if did.startswith("e"):
+                t_doms[T].append((did, e))
         nH[r][ty] = len(hcnt)
         nT[r][ty] = len(tcnt)
         nHits[r][ty] = len(euids)
         Hlist = [[g, c, h_ex[g][0], h_ex[g][1]] for g, c in hcnt.most_common()]
         Tlist = [[g, c, t_ex[g][0], t_ex[g][1]] for g, c in tcnt.most_common()]
-        cell_groups[f"{r},{ty}"] = {"nhit": len(euids), "H": Hlist, "T": Tlist}
+        # depth: up to M_STORE domains for each of the top TOP_GROUPS T-groups
+        Tdoms = {g: [[d, u] for d, u in sorted(set(t_doms[g]))[:M_STORE]]
+                 for g, _c in tcnt.most_common(TOP_GROUPS) if t_doms[g]}
+        cell_groups[f"{r},{ty}"] = {"nhit": len(euids), "H": Hlist, "T": Tlist,
+                                    "Tdoms": Tdoms}
 
     # distributions
     flatT = [nT[r][ty] for r in range(NSK) for ty in range(NTY) if nHits[r][ty] > 0]

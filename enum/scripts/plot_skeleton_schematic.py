@@ -15,6 +15,7 @@ Code legend for col 3 (from assignment.py:_interaction_code):
   t  paired strands inside a sheet, antiparallel
   C  mixed H-E adjacent, same direction
   T  mixed H-E adjacent, opposite direction
+  X  unconstrained wildcard — matches any relationship (NOT a non-contact requirement)
 """
 
 import math
@@ -187,7 +188,7 @@ def main() -> None:
     legend_handles = []
     legend_labels = {
         "-": "diagonal / sheet-pair (-)",
-        "X": "non-adjacent (X)",
+        "X": "unconstrained / any relationship (X)",
         "u": "α-α or β-β (out-of-sheet) parallel (u)",
         "v": "α-α or β-β antiparallel (v)",
         "c": "β-β paired, parallel sheet (c)",

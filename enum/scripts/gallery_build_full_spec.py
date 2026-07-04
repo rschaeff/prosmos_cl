@@ -9,7 +9,8 @@ import psycopg2
 
 GAL = Path("/home/rschaeff/work/prosmos_2026/s5_gallery")
 PROM = Path("/home/rschaeff/dev/prosmos_cl/enum/docs/figures/s5_promiscuity.json")
-K = 3
+K = 15              # top-K T-groups shown per cell (breadth)
+M_PER_GROUP = 4     # domains shown per T-group (depth)
 
 D = json.load(PROM.open())
 row = D["rowSkeleton"]
@@ -26,17 +27,19 @@ for k, v in D["cellGroups"].items():
     r, ty = map(int, k.split(","))
     sk = row[r]
     nT = len(v["T"])
-    if nT == 1:
-        view = "unitypical"
-        ex = v["T"][:1]
-    else:
-        view = "promiscuous"
-        ex = [g for g in v["T"] if g[2].startswith("e")][:K]
-    ex = [g for g in ex if g[2].startswith("e")]
+    view = "unitypical" if nT == 1 else "promiscuous"
+    tdoms = v.get("Tdoms", {})
+    # top-K T-groups that have experimental domains; each contributes up to
+    # M_PER_GROUP domains (one exemplar entry per domain).
+    top_groups = [(g, c) for g, c, _d, _e in v["T"] if g in tdoms][:K]
+    ex = []
+    for gid, gcount in top_groups:
+        for did, euid in tdoms[gid][:M_PER_GROUP]:
+            ex.append([gid, gcount, did, euid])
     if not ex:
         continue
-    for g in ex:
-        need.add(g[2])
+    for gid, gcount, did, euid in ex:
+        need.add(did)
     cells.append({"sk": sk, "ty": ty, "typing": tystr(ty), "view": view,
                   "nT": nT, "nH": len(v["H"]), "nhit": v["nhit"], "ex": ex})
 
