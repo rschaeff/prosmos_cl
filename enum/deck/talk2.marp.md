@@ -62,11 +62,11 @@ paginate: true
 
 ![w:720](../docs/figures/s5_rarefaction.png)
 
-- AFDB accumulates matrix cells *faster per hitting structure* than PDB, and overtakes it by ~10k structures.
-- PDB is redundant: 72k structures → ~2,469 cells, long plateaued.
-- AFDB's lower **total** occupancy is shallower sampling, **not** less diversity — and it still tops out inside the same 6,336-cell space.
+- **Read the x-axis carefully**: it's *distinct hitting domains* (≥1 S5 match), **not** structures searched. Each curve ends at its own hitting count, far below what was scanned.
+- **Hit rates**: manual reps 61% (11.6k / 19k), PDB-exp 14.5% (72k / 496k), AFDB **0.3%** (12.5k / 4.9M). The AFDB curve stops at 12.5k because that is *all* the domains that hit — the other 99.7% of the 4.9M produced no S5 match (small / low-complexity reps; and the rate is a floor — domain-resolved hits over whole-model reps).
+- **The shape is the point**: AFDB accumulates cells *faster per hitting domain* and overtakes PDB by ~10k. PDB is redundant (72k hitting → 2,469 cells, plateaued). AFDB's lower **total** is shallower sampling, **not** less diversity — and it still tops out inside the same 6,336-cell space.
 
-<!-- Notes: Pre-empts "but AFDB is bigger/more diverse." Yes per-structure, but the ceiling is the same enumerable space. Diversity != new topology. -->
+<!-- Notes: Pre-empts two misreads. (1) "AFDB only has 12.5k structures" — no, 12.5k HIT, of 4.9M searched. (2) "but AFDB is bigger/more diverse" — yes per hitting structure, but the ceiling is the same enumerable space. The 0.3% is a floor because numerator = DPAM domains resolved from hits, denominator = whole-model cluster reps (granularity mismatch); pdb_exp's 14.5% is domain/domain and clean. Curve SHAPE (crossover ~10k) is denominator-independent. Diversity != new topology. -->
 
 ---
 
