@@ -58,15 +58,33 @@ paginate: true
 
 ---
 
-# AFDB is diverse per structure — but bounded
+# AFDB coverage: per-structure misleads, fold level agrees
 
-![w:720](../docs/figures/s5_rarefaction.png)
+![w:900](../docs/figures/s5_foldlevel.png)
 
-- **Read the x-axis carefully**: it's *distinct hitting domains* (≥1 S5 match), **not** structures searched. Each curve ends at its own hitting count, far below what was scanned.
-- **Hit rates**: manual reps 61% (11.6k / 19k), PDB-exp 14.5% (72k / 496k), AFDB **0.3%** (12.5k / 4.9M). The AFDB curve stops at 12.5k because that is *all* the domains that hit — the other 99.7% of the 4.9M produced no S5 match (small / low-complexity reps; and the rate is a floor — domain-resolved hits over whole-model reps).
-- **The shape is the point**: AFDB accumulates cells *faster per hitting domain* and overtakes PDB by ~10k. PDB is redundant (72k hitting → 2,469 cells, plateaued). AFDB's lower **total** is shallower sampling, **not** less diversity — and it still tops out inside the same 6,336-cell space.
+- **The trap**: per-structure hit rate looks like AFDB found almost nothing — PDB-exp 18.8% vs AFDB 0.55% among ≥5-SSE structures (**34×**). But that compares a *redundant crystallization census* to a *dereplicated, smaller* diversity sample — not a fair comparison.
+- **The fair view (fold level)**: distinct S5-hitting ECOD T-groups — PDB **1,360** vs AFDB **1,086**. **AFDB recovers 80% of the fold diversity all of experimental PDB does**, from dereplicated reps.
+- **The 34× decomposes**: redundancy **3.8×** (PDB ~53 entries/fold vs AFDB ~14) × size **1.7×** (median 12 vs 5 SSE) × denominator composition (AFDB "capable" = the whole dereplicated proteome, mostly small/dark non-fold clusters). **Not** incompleteness — the sweep is complete (6,336 queries, 4.92M entries, verified).
 
-<!-- Notes: Pre-empts two misreads. (1) "AFDB only has 12.5k structures" — no, 12.5k HIT, of 4.9M searched. (2) "but AFDB is bigger/more diverse" — yes per hitting structure, but the ceiling is the same enumerable space. The 0.3% is a floor because numerator = DPAM domains resolved from hits, denominator = whole-model cluster reps (granularity mismatch); pdb_exp's 14.5% is domain/domain and clean. Curve SHAPE (crossover ~10k) is denominator-independent. Diversity != new topology. -->
+<!-- Notes: This replaces the rarefaction curve, which confused people. Audit chain that kills the "did we finish the search" read: afdb DB has 4,921,931 entries (grep -c .ssd), sweep 6,336 queries all rc=0, searchmatrix streams the DB (no entry cap), a traced hit is correct. Size is NOT dominant (standardizing pdb rates onto afdb's size dist gives 9.82% expected vs 0.55% actual -> 18x residual after size). Redundancy is the driver: dereplicating pdb_exp by T-group, 1,360 folds carry 52.9 entries each. Interactive: inspect fold-nonredundant heatmaps pdb_exp_nr / afdb_assigned_nr (nHits:=nT) + their fold-vs-fold compare (1,815 both-occupied, only 30/2,725 significant). Full trail: enum/docs/dataset_analysis_plan.md. -->
+
+---
+
+# Why the fold repertoire looks closed — and the honest caveat
+
+- The fold-level agreement (AFDB ≈ 80% of PDB's S5-hitting folds, from a totally
+  independent, dereplicated sample) is the positive statement: **the two views
+  of protein space converge on the same bounded set of local motifs.**
+- AFDB's *lower* count (1,086 vs 1,360) is shallower sampling of the rarer folds,
+  **not** a different repertoire — it adds essentially no cells PDB lacks.
+- **Caveat kept in view**: "fold" here = ECOD T-group as the dereplication unit;
+  the per-structure rate is genuinely uninformative across datasets of different
+  redundancy + size, so all cross-dataset claims are made at the fold level with
+  the completeness audit attached.
+
+<!-- Notes: Optional depth slide; can cut for time. The point: once you dereplicate, PDB and AFDB agree, which is the real evidence for a bounded repertoire — stronger than the rarefaction ever was. Keep the T-group-as-unit caveat so nobody reads "fold" as sequence-cluster. -->
+
+---
 
 ---
 
@@ -162,6 +180,7 @@ Chop each candidate to **its own committed `_D<n>` domain boundary** (the pipeli
 
 - **Full landscape done**: 6,336 cells × 4 databases; 3,380 stay empty; all in the interactive inspector.
 - **The negative reframed**: a saturation measurement with an assignment-free, enumerable instrument — the observable 5-SSE repertoire is effectively closed.
+- **PDB ≈ AFDB at the fold level**: per-structure hit rate misleads (34×, redundancy×size); dereplicated by fold, AFDB recovers **80%** of PDB's S5-hitting folds (1,086 vs 1,360) — coverage is redundancy, not incompleteness.
 - **Novelty gauntlet**: four independent novelty definitions (lattice, dark-sequence, no-CATH, annotation-funnel) → all land on known geometry.
 - **The one trap**: whole-model search fabricated 40 "novel" cells; a controlled domain-chopped re-search collapsed them to 0. Input granularity, not topology.
 - **Deliverables**: inspector (`leda:3001/docs`), sealed capstone, full session log.
