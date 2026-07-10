@@ -280,25 +280,53 @@ disconnection: they are **denser than any skeleton can be**.
   the oracle-gap K₁,₄/C₅ non-realizability, [[project_s5_oracle_gap]]). So the
   198 are complete *for that model*; a denser template isn't "missing," it is
   **un-enumerable without leaving the planar-hex model**.
-- **β = induced match (topological wall).** For E-typed pairs the skeleton's
-  non-edges are coded `-` = *require-non-contact*, so β-matching is **induced**
-  subgraph iso: a domain hits only if its strand graph *equals* a ≤7-edge skeleton
-  pattern. A Kₙ (or ≥8-edge) all-β domain violates every skeleton's `-` and matches
-  **nothing**. Decisive test (5-SSE all-β, edge count × hit status): **0 hits among
-  all 11,922 domains with ≥8 edges** (>7-edge ceiling); the only 5 hits sit at 4
-  edges. Figure `figures/s5_contact_ceiling.png`.
+- **The topological wall is REAL but RARE (correction).** A *complete-graph* (Kₙ)
+  domain matches no skeleton: every EEEEE skeleton has ≥1 require-non-contact among
+  the mapped pairs, which a complete graph violates; the hand-picked gallery (all
+  Kₙ) are genuine topological walls. **But this does NOT generalize to all dense β
+  domains.** Earlier framing ("≥8-edge all-β ⇒ matches nothing, induced wall") was
+  **too strong**: **58 of 198 EEEEE skeletons are multi-sheet and code their
+  cross-sheet non-edges `X` (wildcard), not `-`.** So an 8–9-edge β graph *can*
+  embed topologically into a multi-sheet skeleton — it is then dark on **geometry**
+  (contact-type, strand register, handedness), not topology. The empirical **0 hits
+  among 11,922 ≥8-edge 5-SSE all-β domains** (`figures/s5_contact_ceiling.png`)
+  stands, but the *mechanism* is dominantly geometric; only the true complete-graph
+  tail is a topological wall. See the population sieve below for the split.
 - **α = monomorphism (geometry wall).** For H-typed pairs non-edges are coded `X`
   = wildcard, so extra contacts are tolerated; a compact all-α bundle's *contact
-  pattern* is satisfiable. Those are dark for a **softer** reason — contact-type
-  (v/u vs the domain's angle class), the 9 per-skeleton **handedness** triples, and
-  distance gates — off-lattice *packing*, not off-lattice *topology*. Here a
-  differently-parameterized template could in principle match; for the β wall it
-  could not (short of a non-hex descriptor).
+  pattern* is satisfiable. Dark for the same **geometry** reason — contact-type
+  (v/u vs angle class), the 9 per-skeleton **handedness** triples, distance gates.
 
 Bottom line for the thesis: darkness is **not** "no connected 5-SSE motif" and
-**not** a fixable enumeration hole. For β it is a genuine representational boundary
-of the 2D-hex + require-non-contact model (Kₙ > 7-edge ceiling); for α it is
-off-lattice geometry.
+**not** a fixable enumeration hole. It is **overwhelmingly geometric** (2D-hex
+handedness/angle/contact-type rejects a topology that *is* representable) — see the
+sieve; the pure-topology wall (Kₙ, denser than any skeleton) is a rare β-enriched
+tail (~0.6% of the compact residual), not the main story.
+
+### Full dark-sieve of all 4.92M searched reps (Tier-1 exact + Tier-2 proxy)
+`sieve_dark.py` (one exact pass) + `proxy_d1d2.py` (50k topological-match sample).
+Reconciled hit set via **15-char name truncation** (searchmatrix truncates output
+names, dropping `_nD<n>` for 10-char UniProt accs; 939 ambiguous truncations →
+2,272 sibling reps conservatively counted as hit). Mutually-exclusive buckets
+(`figures/s5_dark_sieve.png`):
+
+| bucket | count | % | meaning |
+|---|---:|---:|---|
+| A · <5 SSEs | 2,114,879 | 43.0% | too few SSEs to fill a 5-motif |
+| B · ≥5 SSE, <5 pass length | 645,490 | 13.1% | SSEs too short (H≥8/E≥5 filter) |
+| C · ≥5 pass, sparse | 54,528 | 1.1% | no connected 5-motif (Case-1 extended) |
+| **D2 · compact, geometry-rejected** | **2,046,098** | **41.6%** | topology fits a skeleton; 2D-hex geometry doesn't |
+| **D1 · compact, topology-absent** | **12,972** | **0.26%** | contact pattern fits NO skeleton (Kₙ / β tail) |
+| HIT | 15,593 | 0.32% | — |
+
+- **56% (A+B) is a size/length story**; only **1.1%** is genuinely extended (C).
+- The compact residual (D, 42%) splits **D2 99.4% / D1 0.6%** (proxy, ±0.1% CI):
+  darkness of compact domains is **geometric**, not topological. D1 is
+  **β-enriched** (55% all-E vs 18% base) — the induced-non-contact/complete-graph
+  tail, as predicted; D2 is composition-broad.
+- Method note: the topological proxy embeds each typed skeleton's
+  contact/`-`/`X` pattern (ignoring contact-type identity, handedness, distance —
+  those are the "geometry" it isolates); validated on Kₙ all-β (→ 0 matches).
 
 **Length-filter control (important).** The S5 queries hard-filter every position
 by SSE length (`length` line: **H ≥ 8, E ≥ 5** residues, uniform across all 32
