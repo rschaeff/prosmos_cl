@@ -179,7 +179,7 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
   vector<require> totalrequire;
   vector<sheet> totalsheet;
   elecol *eptr;
-  char qfilename[20];
+  char qfilename[4096];  /* was [20]: overflowed on query paths >19 chars (stack smash) */
   char quline[1000];
   FILE *qufevt, *mtfevt;
   char intMline[1000000];
