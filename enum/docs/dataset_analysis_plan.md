@@ -298,9 +298,21 @@ disconnection: they are **denser than any skeleton can be**.
 Bottom line for the thesis: darkness is **not** "no connected 5-SSE motif" and
 **not** a fixable enumeration hole. For β it is a genuine representational boundary
 of the 2D-hex + require-non-contact model (Kₙ > 7-edge ceiling); for α it is
-off-lattice geometry. Worked set: 20 examples in
-`~/work/prosmos_2026/dark_gallery/` (7 pure-β topological wall, 3 pure-α geometry
-wall, 10 mixed).
+off-lattice geometry.
+
+**Length-filter control (important).** The S5 queries hard-filter every position
+by SSE length (`length` line: **H ≥ 8, E ≥ 5** residues, uniform across all 32
+typings). So darkness could trivially be "too-few long-enough SSEs." Controlled
+for: the worked set was re-derived counting **only** length-passing SSEs
+(`find_dark_compact_v2.py` → **1,913,192** length-clean dark compact ≥5-SSE
+domains, vs 2.46M before the filter — ~22% of v1 were length-confounded). The 20
+gallery examples each have **≥5 SSEs that clear the length filter**, all in a
+complete contact graph — so their darkness is geometry/topology, not sub-threshold
+SSEs. Set: `~/work/prosmos_2026/dark_gallery/` (`dark_compact_montage_v2.png`,
+`dark20b_annotated.tsv` with per-SSE lengths); assigned folds among them: winged
+helix (101.1.2), LysM (101.15.1), HET-s left-handed β-helix (208.5.1), pectin-lyase
+right-handed β-helix (207.2.1). (v1 `dark_compact_montage.png` had 8/20 failing the
+length filter — superseded.)
 
 ## Data pointers
 `afdb_db/`, `ecod_db_pdb_exp/`, `s5_full_afdb/summary.tsv`,
