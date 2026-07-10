@@ -108,8 +108,10 @@ ECOD T-group:
 | **distinct hitting FOLDS (T-groups)** | **1,360** | **1,086** |
 | copies per hitting fold | 52.9 | 14.1 |
 
-**At the fold level they are comparable — afdb recovers 1,086 of the 1,360 S5-
-hitting folds that ALL of experimental PDB does (80%), from dereplicated reps.**
+**At the fold level they hit a comparable NUMBER of T-groups (1,086 vs 1,360) —
+but this "80%" is a COUNT ratio, NOT overlap; see the geometry-vs-fold section
+below (real T-group overlap is only 606, Jaccard 0.33). What actually agrees is
+the CELL (geometry) level.**
 
 **Decomposition of the ~34× per-structure gap** (not missing folds, not an
 incomplete search):
@@ -202,6 +204,69 @@ Durable materials: `~/work/prosmos_2026/rep_truncation/` (renders/, models/,
 data/{fix_pairs,fix_lengths,fix_candidates}.tsv, README.md). Method note: any
 rep-vs-member comparison MUST be paired within-cluster — never cluster-weighted
 reps vs member-weighted members.
+
+## Geometry vs fold: PDB and AFDB reach the same CELLS, diverge only in the rare
+## fold tail (2026-07-09) — corrects the "80% recovery / subset" framing
+
+**The correction.** "AFDB recovers 80% of PDB's folds" was a *count* ratio
+(1,086/1,360), not overlap. At the **T-group** level the sets are NOT a subset:
+| | count |
+|---|---:|
+| PDB hitting T-groups | 1,360 |
+| AFDB hitting T-groups | 1,086 |
+| **shared** | **606** (Jaccard **0.33**) |
+| PDB-only | 754 · AFDB-only | 480 |
+
+So *neither* is a subset of the other at the fold level. **What agrees is the
+CELL (geometry) level** (binary occupancy: 1,832 both, 634 PDB-only, 279
+AFDB-only — AFDB ~88% subset of PDB cells).
+
+**The divergence is the rare-fold tail, ~orthogonal to ECOD class.** PDB-only
+T-groups are rare (median 24 PDB hits vs 114 shared) and spread across 547
+X-groups; AFDB-only rarer (median 10) across 352 X-groups (+ the X109 solenoid
+surplus). Not a specific ECOD architecture — the marginal/rare folds each dataset
+samples differently, plus AFDB's repeat families.
+
+**Worked example — Ig (X-group 11), and 11.9.1.** The *core Ig fold* 11.1.1 hits
+in BOTH, massively (PDB 7,666 / AFDB 732); 9/15 X11 T-groups are shared and carry
+~all the hits. The 6 "PDB-only" X11 T-groups are rare sub-families (5 of them ≤23
+PDB hits). So **Ig is NOT a PDB-only fold** — "X11 40% PDB-only" was T-group
+*counting* of the rare tail. The one non-trivial PDB-only Ig sub-family, **11.9.1
+(404 PDB, 0 AFDB)**, was probed directly: it occupies **46 S5 cells in PDB, and
+all 46/46 are AFDB-occupied** (via other folds), each a promiscuous β-rich cell
+shared with **7–257 other T-groups** (TIM 2002.1.1, kinase 206.1.1, P-loop
+2004.1.1, core Ig 11.1.1…). **So 11.9.1 contributes ZERO PDB-only cells.**
+
+**The definitive statement.** Even the folds PDB *uniquely* hits add **no new S5
+cells** — they occupy geometry AFDB already reaches through other folds. So:
+> Geometry (cells) agrees between PDB and AFDB; T-group membership diverges only
+> in the rare/sub-family tail (a classification + sampling effect), and that
+> divergence carries **no unique geometry** in either direction. Both datasets
+> paint the same bounded 5-SSE geometric picture; AFDB just labels it with fewer,
+> dereplicated folds.
+
+Method note: compare fold repertoires at the **cell (geometry)** level, or coarser
+than T-group (X/H-group), not raw T-group — T-group divergence is dominated by
+rare-sub-family sampling and carries no geometry.
+
+## Darkness is compact geometry S5 can't template (Case 2, not Case 1)
+
+Why do most ≥5-SSE structures NOT hit? Checked the SSE contact graph of every
+≥5-SSE pdb_exp structure (contact = interaction-matrix letter code), split by hit
+status:
+| pdb_exp ≥5-SSE | has compact 5-core (≥5 SSEs, each ≥2 contacts) | mean SSE degree |
+|---|---:|---:|
+| hitting (72,180) | 99.9% | 2.69 |
+| **dark (373,658)** | **96.2%** | 2.39 |
+
+Dark structures are **NOT sparse/extended** — 96% are compact globular units with
+a 5-SSE core, barely less compact than hitters. They simply don't match the 198
+2D-hex skeletons. **So S5 is blind to a large class of real *compact* 5-SSE
+geometry** (not just non-motif structure). Consequence for the thesis: "saturated
+/ no new topology" is scoped to the *narrow slice of compact 5-SSE space S5 can
+template* — a minority of even the compact-domain space. This is the empirical,
+quantitative form of the Lesk / "local, fixed-cardinality descriptor" caveat, and
+it reinforces the two deck caveats (S5-is-local; AF-is-PDB-trained).
 
 ## Data pointers
 `afdb_db/`, `ecod_db_pdb_exp/`, `s5_full_afdb/summary.tsv`,

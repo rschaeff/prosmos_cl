@@ -63,7 +63,7 @@ paginate: true
 ![w:900](../docs/figures/s5_foldlevel.png)
 
 - **The trap**: per-structure hit rate looks like AFDB found almost nothing — PDB-exp 18.8% vs AFDB 0.55% among ≥5-SSE structures (**34×**). But that compares a *redundant crystallization census* to a *dereplicated, smaller* diversity sample — not a fair comparison.
-- **The fair view (fold level)**: distinct S5-hitting ECOD T-groups — PDB **1,360** vs AFDB **1,086**. **AFDB recovers 80% of the fold diversity all of experimental PDB does**, from dereplicated reps.
+- **The fair view (geometry)**: PDB and AFDB occupy the **same S5 cells** (~88% of AFDB's cells shared) and hit a **comparable number** of folds — PDB **1,360** vs AFDB **1,086** T-groups. (Fold *membership* overlaps only ~⅓ — a rare-tail sampling difference — but it carries **no unique cells** either way.)
 - **The 34× decomposes**: redundancy **3.8×** (PDB ~53 entries/fold vs AFDB ~14) × size **1.7×** (AFDB search set is dereplicated *cluster reps*, and cluster-space is dominated by small-domain families → median 5 vs 12 SSE) × denominator composition (AFDB "capable" = the whole dereplicated proteome, mostly small/dark non-fold clusters). **Not** incompleteness — the sweep is complete (6,336 queries, 4.92M entries, verified).
 
 <!-- Notes: This replaces the rarefaction curve, which confused people. Audit chain that kills the "did we finish the search" read: afdb DB has 4,921,931 entries (grep -c .ssd), sweep 6,336 queries all rc=0, searchmatrix streams the DB (no entry cap), a traced hit is correct. Redundancy is the driver (3.8x): dereplicating pdb_exp by T-group, 1,360 folds carry 52.9 entries each. SIZE (1.7x) IS A DEREPLICATION EFFECT, NOT REP TRUNCATION: reps faithfully represent their clusters (paired within-cluster rep/member-median length = 0.99); the search set is short only because it is cluster-weighted and cluster-space is small-domain-heavy. DO NOT say reps are truncated fragments or that grey's rep-selection is buggy -- an earlier truncation claim was a Simpson's-paradox artifact (cluster-weighted reps vs member-weighted members), retracted; re-selecting full-length reps recovers only ~1.1x. Interactive: inspect fold-nonredundant heatmaps pdb_exp_nr / afdb_assigned_nr + fold-vs-fold compare (1,815 both-occupied, only 30/2,725 significant). Full trail incl. retraction: enum/docs/dataset_analysis_plan.md. -->
@@ -85,9 +85,9 @@ paginate: true
 
 # Why the fold repertoire looks closed — and the honest caveat
 
-- The fold-level agreement (AFDB ≈ 80% of PDB's S5-hitting folds, from a totally
-  independent, dereplicated sample) is the positive statement: **the two views
-  of protein space converge on the same bounded set of local motifs.**
+- The cell-level agreement (AFDB reaches the **same S5 cells** as PDB, from a
+  totally independent, dereplicated sample) is the positive statement: **the two
+  views of protein space converge on the same bounded set of local motifs.**
 - AFDB's *lower* count (1,086 vs 1,360) is shallower sampling of the rarer folds,
   **not** a different repertoire — it adds essentially no cells PDB lacks.
 - **Caveat kept in view**: "fold" here = ECOD T-group as the dereplication unit;
@@ -182,7 +182,7 @@ Chop each candidate to **its own committed `_D<n>` domain boundary** (the pipeli
 # Where it lands
 
 - **"ECOD is completed" — bounded to three regimes**: (1) the common core is discovery-complete; (2) the frontier moved from *discovery* to *membership* (AF = remote-homology-at-scale); (3) the tail is curation-hard, not discovery-rich (repeats, symmetry, ARM).
-- **Bottom line**: AFDB does **not** robustly reach S5 cells PDB can't — it's a ~80% *subset* of PDB's folds sampled far more densely, and every novelty probe lands on known geometry. Two caveats bound this:
+- **Bottom line**: AFDB does **not** robustly reach S5 cells PDB can't — its cells are an **~88% subset** of PDB's (a *geometry* subset, not a fold subset), sampled far more densely, and every novelty probe lands on known geometry. Even PDB's *unique* folds add no new cells (e.g. Ig sub-family 11.9.1: 46/46 cells AFDB-occupied). Two caveats bound this:
 - **Caveat 1 — S5 is a *local, fixed-cardinality* descriptor (Lesk)**: it measures 5-SSE *local motif* geometry — blind to global topology, transmembrane arrangement, domain-scale novelty. "No new S5 cells" ≠ "no novel global folds"; an empty cell = "never observed here," not "unfoldable."
 - **Caveat 2 — AlphaFold was trained on the PDB**: AFDB agreeing with PDB on what's reachable is *partly a training prior*. The data can't cleanly separate "the real proteome is saturated" from "AF only renders PDB-like geometry." Same practical result (broader prediction surfaces no new cells), genuinely ambiguous mechanism.
 - **Still open**: are the 3,380 empty cells sterically reachable-but-untaken, or lattice over-generation? Resolution needs constructive 3D backbone modeling (RFdiffusion / Rosetta) on the negspace.
@@ -195,7 +195,7 @@ Chop each candidate to **its own committed `_D<n>` domain boundary** (the pipeli
 
 - **Full landscape done**: 6,336 cells × 4 databases; 3,380 stay empty; all in the interactive inspector.
 - **The negative reframed**: a saturation measurement with an assignment-free, enumerable instrument — the observable 5-SSE repertoire is effectively closed.
-- **PDB ≈ AFDB at the fold level**: per-structure hit rate misleads (34×, redundancy×size); dereplicated by fold, AFDB recovers **80%** of PDB's S5-hitting folds (1,086 vs 1,360) — coverage is redundancy, not incompleteness.
+- **PDB ≈ AFDB in geometry**: per-structure hit rate misleads (34×, redundancy×size); PDB and AFDB occupy the **same S5 cells** and hit comparable fold counts (1,360 vs 1,086) — T-group membership diverges only in the rare tail (no new cells). Coverage is redundancy, not incompleteness.
 - **Novelty gauntlet**: four independent novelty definitions (lattice, dark-sequence, no-CATH, annotation-funnel) → all land on known geometry.
 - **The one trap**: whole-model search fabricated 40 "novel" cells; a controlled domain-chopped re-search collapsed them to 0. Input granularity, not topology.
 - **Deliverables**: inspector (`leda:3001/docs`), sealed capstone, full session log.
