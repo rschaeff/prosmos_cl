@@ -205,12 +205,12 @@ Chop each candidate to **its own committed `_D<n>` domain boundary** (the pipeli
 
 ---
 
-# Backup — apples-to-apples fold-rarefaction
+# Backup — apples-to-apples rarefaction (per T-group)
 
 ![w:720](../docs/figures/s5_foldrarefaction.png)
 
-- The honest replacement for the retired per-structure rarefaction: **x-axis is distinct FOLDS (T-groups), not structures** → removes the redundancy confound (PDB census vs AFDB dereplicated).
-- **PDB and AFDB track within ~15%** — AFDB folds are about as cell-productive as PDB's (1.91 vs 1.81 cells/fold). No dataset samples matrix-space dramatically better per fold.
-- Band = IQR over 40 random fold-orderings (tight → order-robust). Residual caveats *partially cancel*: PDB samples each fold ~6–33× deeper (union → more cells/fold); solenoid tiling inflates cells/fold in both.
+- The honest replacement for the retired per-structure rarefaction: **x-axis is distinct ECOD T-groups, not structures** → removes the redundancy confound (PDB census vs AFDB dereplicated).
+- **PDB and AFDB track within ~15%** — AFDB T-groups are about as cell-productive as PDB's (1.91 vs 1.81 cells/T-group). No dataset samples matrix-space dramatically better per T-group.
+- Band = IQR over 40 random T-group orderings (tight → order-robust). Residual caveats *partially cancel*: PDB samples each T-group ~6–33× deeper (union → more cells); solenoid tiling inflates cells/T-group in both.
 
-<!-- Notes: Backup for the reachability/coverage Q&A. This is the corrected form of the parked rarefaction fork. The line is the mean over 40 random fold-add orders; the cloud is the 25-75th-percentile band across those orders (sampling-order variability), NOT a confidence interval on a fit. manual_pdb deliberately excluded: different T-group universe (ecod_rep all classes 2,176 vs af2_pdb subset 1,360) + ~1 struct/fold, not on the same footing. Data: pdb_exp_build / afdb_build s5_promiscuity.json; script ~/work/prosmos_2026/plot_foldrarefaction.py. -->
+<!-- Notes: Backup for the reachability/coverage Q&A. Corrected form of the parked rarefaction fork. Line = mean over 40 random T-group-add orders; cloud = 25-75th-percentile band across those orders (sampling-order variability), NOT a confidence interval on a fit. Used "T-group" not "fold" — more precise for this ECOD-literate audience. manual_pdb deliberately excluded: different T-group universe (ecod_rep all classes 2,176 vs af2_pdb subset 1,360) + ~1 struct/T-group, not on the same footing. Data: pdb_exp_build / afdb_build s5_promiscuity.json; script ~/work/prosmos_2026/plot_foldrarefaction.py. -->
