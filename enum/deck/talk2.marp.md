@@ -70,6 +70,18 @@ paginate: true
 
 ---
 
+# Cell by cell, PDB and AFDB agree at the fold level
+
+![w:520](../docs/figures/s5_foldcompare.png)
+
+- Redundancy-controlled diff: **log₂(fold-share PDB / AFDB)** per S5 cell, same skeleton×typing grid. **Pale = agree.**
+- 1,815 cells occupied in both; **only 30 of 2,725 differentially enriched** (q<0.05, circled). A faint PDB lean (it carries ~25% more total folds) — but **no cell class is AFDB's alone, and none PDB's alone at scale**.
+- Two independent samples of protein space — a redundant crystallographic census and a dereplicated predicted proteome — occupy the **same motif cells in the same proportions**. That convergence is the real evidence for a bounded repertoire.
+
+<!-- Notes: The interactive twin is /compare/pdb_exp_nr/afdb_assigned_nr in the inspector. Grey = neither occupied. Slight red skew = PDB's 1,360 vs AFDB's 1,086 folds (mild, compositional). The 30 circled cells are the only significant differences after BH correction — trivially few for 2,725 cells. This is the diff heatmap that the per-structure compare could never show cleanly (that one was dominated by the ~53x vs ~14x redundancy offset). -->
+
+---
+
 # Why the fold repertoire looks closed — and the honest caveat
 
 - The fold-level agreement (AFDB ≈ 80% of PDB's S5-hitting folds, from a totally
