@@ -146,74 +146,62 @@ that all of experimental PDB does. The 34× per-structure gap is redundancy (3.8
 missing." → Figure: fold-level bar (1,360 vs 1,086) + the decomposition, NOT the
 per-structure rarefaction curve.
 
-## The "size 1.7×" factor is a rep-selection artifact (deep dive, 2026-07-09)
+## Rep "truncation" — investigated and RETRACTED (Simpson's paradox); 2026-07-09
 
-The Phase-3 size effect turned out **not** to be biology or DPAM partitioning —
-it is that the AFDB search substrate is grey's **non-singleton cluster
-representatives**, and those reps are systematically truncated relative to the
-domains they represent.
+**Retraction.** An earlier version of this section (commit 41c9323) claimed the
+AFDB searched reps are systematically truncated fragments (~half the length of
+their cluster members; T-group ratios 0.26–0.55, worst for globular folds). **That
+claim was a weighting artifact and is wrong.** Attempting to *quantify the fix*
+(re-search with full-length reps) exposed it.
 
-**Chain of elimination.**
-- afdb searched entries: median **5 SSE / 67-res SSE-span** vs pdb_exp ECOD
-  domains 12 SSE / 139 res.
-- NOT DPAM over-splitting: afdb_200m's DPAM over *all* AFDB = median **132 res**,
-  ≈ ECOD 135; grey's DPAM ≈ afdb_200m's DPAM for the same proteins (coverage 0.98
-  when the searched `_D<n>` bulk is joined to `ecod_domain_range` by index).
-- NOT the singleton/non-singleton split: within-cluster, member domains =
-  population (median ~130); only reps are short. Split is minor + wrong-direction
-  (non-singleton 64 > singleton 47).
-- **It is the clustering rep-selection.** Within the same clusters (roster p0,
-  equal footing): **REP median 56 res vs non-rep MEMBER median 127.** Reps are
-  ~half the length of the members they represent.
+**What the wrong claim compared.** "REP median 56 vs MEMBER median 127" and the
+T-group ratios compared **cluster-weighted reps** (one per cluster → dominated by
+the *many small-domain clusters*) against **member-weighted members** (roster
+rows → dominated by the *few huge clusters* with long domains). Different
+populations → Simpson's paradox. Reps looked short only because small-domain
+folds form many clusters while long-domain folds form few (large) clusters.
 
-**Conditioned on T-group — worst for globular α/β, not repeats** (rep/member
-median length ratio):
-| fold | ratio | | fold | ratio |
-|---|---:|---|---|---:|
-| TIM barrel 2002.1.1 | **0.26** | | ARM repeat 109.4.1 | 0.77 |
-| P-loop 2004.1.1 | **0.39** | | Ig 11.1.1 | 0.90 |
-| kinase 206.1.1 | **0.39** | | SH3 4.1.1 | 0.87 |
-| Rossmann 2003.1.1 | **0.48** | | winged-helix 101.1.2 | 0.99 |
-| RNaseH 2484.1.1 | **0.55** | | OB-fold 2.1.1 | 1.00 |
+**Proper paired test (the correction).** For each cluster, rep length vs its own
+members' median (n=2,649 sampled clusters, ≥2 members):
+- **rep/member-median ratio = 0.99** (p25 0.96, p75 1.00).
+- Clusters where rep < member-median: 52% (≈ chance). Clusters are length-
+  *homogeneous*; the rep faithfully represents its cluster. **No within-cluster
+  truncation.**
 
-Strongest truncation in the compact, S5-rich workhorse folds; least in repeats
-(a short ARM rep = fewer units, mild); none in naturally-small folds (Ig/OB/SH3
-already minimal — this is the eukaryotic-tilt control, and it comes out clean).
-Visuals: `enum/docs/figures/s5_rep_truncation.png` (rep domain on full model,
-globular reps are fragments, Ig reps whole).
+**The "fix" barely moves anything.** Re-selecting each rep to its cluster's
+LONGEST member (random cluster sample, cluster-weighted like the real search set):
+| cluster size | n | rep med | longest med | recovery |
+|---|---:|---:|---:|---:|
+| 2–3 | 1201 | 58 | 63 | 1.09× |
+| 4–9 | 710 | 66 | 74 | 1.12× |
+| 10–49 | 506 | 73 | 84 | 1.15× |
+| 50–499 | 189 | 86 | 102 | 1.19× |
+| 500+ | 45 | 114 | 137 | 1.20× |
 
-**Nuance (heterogeneous clusters).** The clean 0.5 ratio is an *aggregate*
-(rep-median 81 vs member-median 168 across all 2003.1.1 clusters), partly a
-*between-cluster* effect. Within a single cluster the rep sits at the **short
-mode** of a *bimodal* size/SSE distribution — clusters lump partial fragments +
-full-length domains of the same fold, and the rep tends to be a short member. E.g.
-cluster A0A2D6GC17_D1: rep 82 aa / 8 SSE, but the cluster contains full 179 aa /
-**17 SSE** Rossmanns it omits. (`rep_truncation/renders/cluster_violin.png`,
-`rep_vs_member.png`.)
+Even the largest clusters recover only ~1.2×. So the A/B search was **not run** —
+the input changes ~1.1× and the hit-rate recovery would be negligible. The
+per-cluster-render examples (rep 82 aa vs a 179-aa / 17-SSE member) were **real
+but unrepresentative** — cherry-picked from large *bimodal* clusters; typical
+clusters are homogeneous. (Figures `s5_rep_truncation.png`, `cluster_violin.png`,
+`rep_vs_member.png` are kept as the illustrative-but-atypical record.)
 
-**Partial-domain flag exists but only partly explains it.** Grey has
-`summary/partial_domains.parquet` (query = fragment contained in larger target;
-qcov high, tcov low) + `dpam_prob_max`. Partial-flag rate among reps is enriched
-in globular folds (TIM 8.3%, P-loop 8.0%, RNaseH 7.0%, kinase 6.5% vs 4.9%
-baseline; Ig 1.1%) — corroborates the direction — but absolute rates are modest,
-so most short reps are *unflagged* short members, not DPAM-called partials. (Note
-`assign_status` = great/good/acceptable/ambiguous is *assignment confidence*, not
-completeness.)
-
-**Provenance.** The rep is grey's — `cluster_name` IS the mmseqs `358M→20M`
-representative. Our pipeline searched grey's reps; we never chose which member
-represents a cluster. The fix is a rep *re-selection* (longest / highest
-dpam_prob / non-partial member per cluster) upstream — grey's lever. Flagged to
-grey (heads-up handled by RDS).
-
-**Implication.** The Phase-3 "size 1.7×" factor is *not* a property of AFDB or of
-PDB-vs-AFDB — it is which structures grey's pipeline chose as reps. Searching
-full-length domains/members would roughly double SSE content for the affected
-globular folds and shrink the size factor. The **redundancy 3.8×** effect (Phase
-2) is unaffected and remains the real driver.
+**Correct attribution (unchanged conclusion).** The AFDB searched reps ARE shorter
+than the full domain population (median 66-res SSE-span / 5 SSE vs population
+130 res). But that is the **dereplication effect**, not truncation: the search set
+is one rep per cluster (cluster-weighted), and cluster-space is dominated by
+small conserved-domain families. This is the same phenomenon as the redundancy
+finding — reads through the cluster-weighting, not a rep defect. So:
+- The Phase-3 **size 1.7×** stands as a real property of the dereplicated search
+  set (small-domain-heavy cluster space), NOT a fixable rep artifact.
+- The **redundancy 3.8×** (Phase 2) remains the dominant driver.
+- **Nothing to flag to grey** — the reps are representative; the DPAM/clustering
+  is fine. (The partial-domain flag `partial_domains.parquet` exists and is mildly
+  enriched in globular reps ~8% vs 5%, but does not indicate a systematic problem.)
 
 Durable materials: `~/work/prosmos_2026/rep_truncation/` (renders/, models/,
-data/, README.md, render.pml, phase1_profile.py).
+data/{fix_pairs,fix_lengths,fix_candidates}.tsv, README.md). Method note: any
+rep-vs-member comparison MUST be paired within-cluster — never cluster-weighted
+reps vs member-weighted members.
 
 ## Data pointers
 `afdb_db/`, `ecod_db_pdb_exp/`, `s5_full_afdb/summary.tsv`,
