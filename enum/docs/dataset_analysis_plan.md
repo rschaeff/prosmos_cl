@@ -386,3 +386,28 @@ afdb_200m schema (lotta/ecod_protein): `ecod_domain_range` (domain ranges, join
 via `protein.uniprot_acc`→`protein.id`=`protein_id`), `cluster_summary_full_v4`,
 `ecod_cluster_roster_p*`. grey parquets: `/home/grey/afdb.200m/summary/` +
 `assignments/`.
+
+## DB-build validation — reference is the original 2010 ProSMoS metamatricesDB
+Our searchmatrix DBs are built by a **rebuilt** pipeline (palsse_cl + our
+generateMatrix), so they are validated against the ProSMoS authors' frozen build:
+- **Reference**: `~/src/Prosmos/ProSMoS/metamatrixdb/metamatricesDB` (2010, 306MB,
+  PDB2010). Same record format as ours.
+- **PALSSE layer** (SSE assignment): `palsse_oracle/regression/check.sh` diffs
+  palsse_cl vs the original Python-2.4 PALSSE oracle — **4/4 PASS** (000000029/48/57,
+  1ua4).
+- **generateMatrix layer** (contacts+geometry = the metamatricesDB record):
+  `scripts/db_validation/genmat_regression.sh` runs our generateMatrix on the PALSSE
+  .ssd for structures present in the 2010 DB and compares the record — **5/5 PASS**
+  (1crn, 1tim, 1ua4, 1ubq, 2hhb): the **contact-matrix line is byte-identical** and
+  the SSE type+range sequence matches. Two known, benign deltas: (a) our type field
+  carries a chain char (`EA` vs legacy `E`) — cosmetic, and handled by the
+  searchmatrix buffer-overflow patch (commit d3e1e83); (b) 2hhb raw endpoint
+  coordinates differ (different input PDB version/assembly frame) — contacts are
+  distance-based so the matrix is invariant, and it still passes.
+- The legacy `generateMatrix/Linux/generateMatrix` binary itself is dead on this host
+  (needs `libstdc++.so.5`, GCC-3 era); the 2010 DB is the frozen reference instead.
+
+Conclusion: the build reproduces the original authors' output bit-for-bit on the
+contact matrix (the data searchmatrix consumes). The parsing quirks found while
+analyzing the DB (15-char name truncation in search OUTPUT; chain-lettered residues;
+0-SSE failed-build records) were in downstream analysis parsers, not the DB build.
