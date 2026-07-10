@@ -120,6 +120,23 @@ incomplete search):
    proteome, mostly small/dark non-fold clusters; pdb_exp's 383k = curated folds.
    (Plus afdb 2.7× more all-α → under-reaches α/β cells.)
 
+## FORK RESOLVED — corrected (dereplicated) rarefaction
+The original rarefaction (cells vs hitting *structures*) conflated diversity with
+redundancy: PDB accumulates cells slowly per structure *because* it is redundant
+(copies of one fold add no cells), so "AFDB faster per structure" was really "PDB
+is redundant." Corrected by dereplicating the x-axis → **cells vs distinct FOLDS
+(T-groups) sampled**:
+- pdb_exp: 1,360 folds → 2,466 cells (**1.81 cells/fold**)
+- afdb:    1,086 folds → 2,074 cells (**1.91 cells/fold**)
+- matched fold counts track within ~15% (200f: 1,279 vs 1,087; 500f: 1,775 vs 1,490)
+
+Verdict: **AFDB folds are not cell-poorer** — per fold they reach S5 cells as
+efficiently as PDB folds. AFDB's lower total cell count = fewer folds sampled,
+not weaker folds. This is the defensible form of the parked rarefaction's shape
+claim. Retired the per-structure curve from the deck (superseded by the fold-bar
++ diff-heatmap); the corrected fold-curve is a backup if a trajectory view is
+ever wanted (`plot_foldrarefaction` derivable from the promiscuity fold→cell map).
+
 ## Phase 4 — Replace the rarefaction — the defensible statement
 "Per-structure hit rate is not comparable across a redundant crystallization
 census (PDB) and a dereplicated, smaller-on-average diversity sample (AFDB). At
