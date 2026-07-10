@@ -133,3 +133,90 @@ predictions." Distinguishing these two readings requires
 constructive geometric tests — attempting to build 3D backbones
 satisfying the topology and handedness constraints with realistic
 SSE geometry — and falls outside the scope of this paper.
+
+---
+
+## Two marginals: negative space versus dark structure
+
+The enumeration and search together define a bipartite incidence between
+the *P* enumerated typed patterns (6,336 at S5) and the *S* searched
+structures, with an edge wherever a structure realizes a pattern under
+the ProSMoS matching criteria. Every question one can ask of this
+incidence is a statement about one of its two marginals, and the two are
+not interchangeable.
+
+**The pattern marginal — negative space.** Fixing the patterns and asking
+which have degree zero yields *negative space*: enumerated topologies that
+no structure realizes. This is the marginal Chitturi et al. (2016) study,
+and the one our negative-space sweep above extends — 25 of 198 S5
+skeletons realize in no manual-rep domain, and 800 typed queries realize
+in none of 5.4M structures. It is a measure of the enumeration's
+**over-generation**: patterns the generator emits that nature does not
+build. Crucially, it is asked entirely *within the enumeration's own
+frame*. The patterns are the universe of discourse; structures enter only
+as tallies against them. No audit of empty patterns, however exhaustive,
+can report that the pattern set *misses* structure space — a structure
+that matches nothing is simply absent from the accounting.
+
+**The structure marginal — dark structure.** Fixing the structures and
+asking which have degree zero yields *dark structure*: observed domains
+that realize no enumerated pattern. This inverts the denominator and puts
+the enumeration on trial as a representation. Sieving the 4,921,931 AFDB
+and 496,359 experimental-PDB search entries into mutually exclusive
+classes — fewer than five SSEs; five or more but fewer than five clearing
+the query length filter; five or more but no connected five-SSE contact
+subgraph; and compact (a connected five-SSE motif in the length-passing
+contact graph) — leaves a *compact-but-dark* residual of **41.8% of AFDB
+reps and 67.6% of experimental-PDB domains**: multi-SSE globular domains
+that contain a bona fide five-SSE motif yet match no skeleton. This is a
+measure of the enumeration's **under-coverage**, and it is invisible to
+the pattern marginal.
+
+**The marginals are decoupled.** A healthy pattern-realization rate does
+not imply coverage of structure space, because the realized patterns can
+each be narrow. Both marginals are poor here, but independently: 63% of S5
+typed queries are unrealized in the manual-rep set (large negative space)
+*and* 42–68% of compact structures are dark (large under-coverage), and
+neither figure constrains the other. One can construct enumerations in
+which almost every pattern is realized yet almost every structure is dark,
+and vice versa; the two are separate facts about separate margins.
+
+**The remedies are opposite.** The natural correction for negative space
+is to *prune* — over-generation is fixed by removing patterns the data
+never support (e.g. imposing a chirality prior to discard skeletons whose
+handedness signature lies outside the natural distribution, which would
+cut the S5 corpus roughly threefold). This is precisely the wrong move for
+under-coverage: pruning the descriptor can only *raise* the dark fraction.
+The two marginals pull the descriptor in opposite directions, so a
+correction that optimizes pattern realism degrades representational
+coverage. A descriptor cannot be tuned to both margins at once by pruning
+alone; closing the coverage gap requires changing the geometric model, not
+trimming the pattern list.
+
+**Dark structure is the validity check for the biology of negative space.**
+The tempting reading of an empty pattern is biological — a topology nature
+avoids, hence a design target or an evolutionary constraint. That reading
+presupposes the descriptor covers structure space; if it does not, an empty
+pattern may be empty because the descriptor is narrow rather than because
+the topology is forbidden. Decomposing the dark residual resolves which:
+using the ProSMoS matching semantics but withholding the geometric
+constraints (handedness, contact-type, distance), **99.4% of compact-dark
+AFDB domains — and 99.8% of compact-dark PDB domains — carry a contact
+topology that some skeleton can express**; only 0.2–0.6% are
+topology-absent (denser than any skeleton, the complete-graph tail). Dark
+structures are therefore not novel topologies the enumeration lacks; they
+are representable topologies presented at a three-dimensional geometry —
+inter-SSE angle, handedness, packing — that no lattice placement accepts.
+The same conclusion holds for curated experimental structures as for AFDB
+predictions, so it is a property of the descriptor, not of any one
+structure set.
+
+This bounds how far the negative-space result can be read. The 800 absent
+motifs are genuinely absent across 5.4M structures under a strict
+geometric match; but because the strict match rejects the great majority
+of compact structures on geometry while accepting their topology, "absent
+from the descriptor's realized geometry" and "absent from protein space"
+are not the same statement. The defensible claim is the former, with the
+coverage gap quantified rather than assumed. The pattern marginal alone
+cannot make this distinction; the structure marginal is the measurement
+that licenses — and here, qualifies — the interpretation.
