@@ -202,3 +202,15 @@ Chop each candidate to **its own committed `_D<n>` domain boundary** (the pipeli
 - **Open**: geometric reachability of the 3,380 — constructive modeling, not more search.
 
 <!-- Notes: One-slide close. Order: what finished, the claim, the gauntlet, the trap+seal, deliverables, the single remaining open question. -->
+
+---
+
+# Backup — apples-to-apples fold-rarefaction
+
+![w:720](../docs/figures/s5_foldrarefaction.png)
+
+- The honest replacement for the retired per-structure rarefaction: **x-axis is distinct FOLDS (T-groups), not structures** → removes the redundancy confound (PDB census vs AFDB dereplicated).
+- **PDB and AFDB track within ~15%** — AFDB folds are about as cell-productive as PDB's (1.91 vs 1.81 cells/fold). No dataset samples matrix-space dramatically better per fold.
+- Band = IQR over 40 random fold-orderings (tight → order-robust). Residual caveats *partially cancel*: PDB samples each fold ~6–33× deeper (union → more cells/fold); solenoid tiling inflates cells/fold in both.
+
+<!-- Notes: Backup for the reachability/coverage Q&A. This is the corrected form of the parked rarefaction fork. The line is the mean over 40 random fold-add orders; the cloud is the 25-75th-percentile band across those orders (sampling-order variability), NOT a confidence interval on a fit. manual_pdb deliberately excluded: different T-group universe (ecod_rep all classes 2,176 vs af2_pdb subset 1,360) + ~1 struct/fold, not on the same footing. Data: pdb_exp_build / afdb_build s5_promiscuity.json; script ~/work/prosmos_2026/plot_foldrarefaction.py. -->
