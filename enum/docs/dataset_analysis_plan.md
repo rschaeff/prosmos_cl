@@ -268,6 +268,40 @@ template* — a minority of even the compact-domain space. This is the empirical
 quantitative form of the Lesk / "local, fixed-cardinality descriptor" caveat, and
 it reinforces the two deck caveats (S5-is-local; AF-is-PDB-trained).
 
+### Why a compact domain is dark: TOO connected, not disconnected (contact ceiling)
+The hard question — "is there a matrix that *would* hit these that's just missing
+from our set, or could no S5 ever hit them?" — has a precise, mechanistic answer.
+These dark compact domains **do** form a connected 5-SSE motif — often a *complete*
+one (every SSE contacts every other, Kₙ). The failure is the opposite of
+disconnection: they are **denser than any skeleton can be**.
+- **Contact ceiling.** Across all 198 S5 skeletons the densest has **7 of 10**
+  possible 5-SSE contacts (dist: 4→12, 5→98, 6→28, 7→60 skeletons). **None is a
+  5-clique** — and none can be: the 2D-hex lattice's max clique is 3 (same wall as
+  the oracle-gap K₁,₄/C₅ non-realizability, [[project_s5_oracle_gap]]). So the
+  198 are complete *for that model*; a denser template isn't "missing," it is
+  **un-enumerable without leaving the planar-hex model**.
+- **β = induced match (topological wall).** For E-typed pairs the skeleton's
+  non-edges are coded `-` = *require-non-contact*, so β-matching is **induced**
+  subgraph iso: a domain hits only if its strand graph *equals* a ≤7-edge skeleton
+  pattern. A Kₙ (or ≥8-edge) all-β domain violates every skeleton's `-` and matches
+  **nothing**. Decisive test (5-SSE all-β, edge count × hit status): **0 hits among
+  all 11,922 domains with ≥8 edges** (>7-edge ceiling); the only 5 hits sit at 4
+  edges. Figure `figures/s5_contact_ceiling.png`.
+- **α = monomorphism (geometry wall).** For H-typed pairs non-edges are coded `X`
+  = wildcard, so extra contacts are tolerated; a compact all-α bundle's *contact
+  pattern* is satisfiable. Those are dark for a **softer** reason — contact-type
+  (v/u vs the domain's angle class), the 9 per-skeleton **handedness** triples, and
+  distance gates — off-lattice *packing*, not off-lattice *topology*. Here a
+  differently-parameterized template could in principle match; for the β wall it
+  could not (short of a non-hex descriptor).
+
+Bottom line for the thesis: darkness is **not** "no connected 5-SSE motif" and
+**not** a fixable enumeration hole. For β it is a genuine representational boundary
+of the 2D-hex + require-non-contact model (Kₙ > 7-edge ceiling); for α it is
+off-lattice geometry. Worked set: 20 examples in
+`~/work/prosmos_2026/dark_gallery/` (7 pure-β topological wall, 3 pure-α geometry
+wall, 10 mixed).
+
 ## Data pointers
 `afdb_db/`, `ecod_db_pdb_exp/`, `s5_full_afdb/summary.tsv`,
 `s5_full_pdb_exp/summary.tsv`; SSE count via `grep -oP '\.ssd\s+\K[0-9]+'`;
