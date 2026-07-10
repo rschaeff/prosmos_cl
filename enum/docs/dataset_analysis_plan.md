@@ -328,6 +328,42 @@ names, dropping `_nD<n>` for 10-char UniProt accs; 939 ambiguous truncations →
   contact/`-`/`X` pattern (ignoring contact-type identity, handedness, distance —
   those are the "geometry" it isolates); validated on Kₙ all-β (→ 0 matches).
 
+### Same sieve on PDB (pdb_exp) — is the gap AFDB-specific? No.
+Ran the identical sieve on pdb_exp (`sieve_pdb.py`, 496,359 ECOD domains; note the
+SSE regex must tolerate real chain ids `EP/HX/E3/EB` + glued/lettered residues —
+AFDB was all chain `A`). Clean: buckets sum exactly, all 72,180 hitters in D, 0 in
+A/B/C. Figure `figures/s5_sieve_pdb_vs_afdb.png`.
+
+| bucket | PDB % | AFDB % |
+|---|---:|---:|
+| A <5 SSE | 10.2 | 43.0 |
+| B SSEs too short | 6.9 | 13.1 |
+| C sparse/extended | 0.9 | 1.1 |
+| D2 compact · geometry-rejected | ~67.4 | ~41.6 |
+| D1 compact · topology-absent | ~0.14 | ~0.26 |
+| HIT | 14.5 | 0.32 |
+
+**Three findings:**
+1. **The mechanism is identical.** PDB compact-dark splits **D2 99.8% / D1 0.2%**
+   (proxy, ±0.04) — the same as AFDB (99.35 / 0.65). Compact-domain darkness is
+   geometry-rejection in *both* databases; **not an AFDB artifact.** The S5 matrix
+   is geometrically narrow for real experimental PDB structures too.
+2. **Composition differs by domain size.** AFDB is **56% too-small/short (A+B)**
+   (dereplication keeps many small single-domain clusters); PDB only **17%** (big
+   multi-SSE ECOD domains, median ~12 SSE). So PDB is dominated by the eligible
+   compact set: **D-dark is 67.6% of all searched PDB vs 41.8% of AFDB** — PDB is
+   proportionally *more* compact-but-dark.
+3. **The residual gap is redundancy.** Within the eligible compact-motif set
+   (bucket D), PDB hits **17.7%** vs AFDB **0.71%** (~25×). Since D controls for
+   size/length/sparsity, this residual is the redundant-census vs dereplicated-
+   sample effect: PDB crystallizes the hitting geometries many times over.
+
+Bottom line: PDB shows the **same** stratification gap and the **same** geometric
+darkness mechanism; it differs only in entry-size composition (fewer sub-floor
+domains) and per-structure redundancy (25× within-eligible). The "S5 is a narrow
+geometric descriptor, and most real compact domains have representable topology but
+non-lattice geometry" conclusion is database-independent.
+
 **Length-filter control (important).** The S5 queries hard-filter every position
 by SSE length (`length` line: **H ≥ 8, E ≥ 5** residues, uniform across all 32
 typings). So darkness could trivially be "too-few long-enough SSEs." Controlled
