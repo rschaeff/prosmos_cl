@@ -181,10 +181,12 @@ Chop each candidate to **its own committed `_D<n>` domain boundary** (the pipeli
 # Where it lands
 
 - **"ECOD is completed" — bounded to three regimes**: (1) the common core is discovery-complete; (2) the frontier moved from *discovery* to *membership* (AF = remote-homology-at-scale); (3) the tail is curation-hard, not discovery-rich (repeats, symmetry, ARM).
-- **Honest limits, in the paper**: S5 is a *local, offset, fixed-cardinality* descriptor (Lesk) — claims are about 5-SSE motif space; an empty cell means "never observed here," not "unfoldable."
+- **Bottom line**: AFDB does **not** robustly reach S5 cells PDB can't — it's a ~80% *subset* of PDB's folds sampled far more densely, and every novelty probe lands on known geometry. Two caveats bound this:
+- **Caveat 1 — S5 is a *local, fixed-cardinality* descriptor (Lesk)**: it measures 5-SSE *local motif* geometry — blind to global topology, transmembrane arrangement, domain-scale novelty. "No new S5 cells" ≠ "no novel global folds"; an empty cell = "never observed here," not "unfoldable."
+- **Caveat 2 — AlphaFold was trained on the PDB**: AFDB agreeing with PDB on what's reachable is *partly a training prior*. The data can't cleanly separate "the real proteome is saturated" from "AF only renders PDB-like geometry." Same practical result (broader prediction surfaces no new cells), genuinely ambiguous mechanism.
 - **Still open**: are the 3,380 empty cells sterically reachable-but-untaken, or lattice over-generation? Resolution needs constructive 3D backbone modeling (RFdiffusion / Rosetta) on the negspace.
 
-<!-- Notes: The careful version of "we're done." Three regimes so nobody hears "protein folding is solved." The reachability question is the same open item as deck 1 — unchanged, because it's genuinely constructive-modeling territory, not more searching. -->
+<!-- Notes: The careful version of "we're done." Three regimes so nobody hears "protein folding is solved." The two caveats are load-bearing for referees: (1) S5 is local so we only claim local-motif saturation, not global-fold closure; (2) AF is PDB-trained so the AFDB-doesn't-reach-new result is partly a prior, not independent evidence — state both explicitly and don't overclaim "fold space is closed." The reachability question is the same open item as deck 1 — constructive-modeling territory, not more searching. -->
 
 ---
 
