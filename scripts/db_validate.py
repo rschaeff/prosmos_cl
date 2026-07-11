@@ -33,6 +33,37 @@ import argparse
 import sys
 
 
+# searchmatrix parses the header at FIXED byte offsets (searchControl.h:1208-1310):
+# name %-32s | count %4d @32 | then per SSE, 68 bytes each starting @36:
+#   type,chain (2) | begin %5s (5) | "--" (2) | end %5s (5) | " " | len %4d (4)
+#   | " " | 6x coord %8.3f (48).
+# So for SSE k the "--" separator must sit at offset 43 + 68*k. If any field
+# overflows its width (name >32, residue >5 digits, |coord| >= 10000 or <= -1000,
+# count/len >9999) every following field shifts and the "--" moves. This check
+# detects that misalignment directly. On the current AFDB DB, zero records fail
+# it (max name 24, residues <=4 digits, no coord overflow) -- it's a forward
+# guard against a future generateMatrix run that overflows a column.
+SSE_STRIDE = 68
+FIRST_SSE = 36
+
+
+def header_field_overflow(line: str) -> bool:
+    """True if `line` (a header) is misaligned at searchmatrix's fixed offsets
+    (i.e. some field overflowed its fixed width)."""
+    name_ssd = line[:line.find(".ssd") + 4] if ".ssd" in line else ""
+    if len(name_ssd) > 32:
+        return True
+    try:
+        count = int(line[32:36])
+    except ValueError:
+        return True
+    for k in range(count):
+        sep = FIRST_SSE + SSE_STRIDE * k + 7
+        if line[sep:sep + 2] != "--":
+            return True
+    return False
+
+
 def line_kind(line: str) -> str:
     if not line:
         return "blank"
@@ -48,6 +79,7 @@ def line_kind(line: str) -> str:
 def validate(path: str, clean_out: str | None = None, show: int = 0):
     total = wellformed = 0
     malformed = {"orphan_block": 0, "header_no_matrix": 0, "extra_matrix": 0, "stray": 0}
+    field_overflow = 0
     shown = 0
     out = open(clean_out, "w") if clean_out else None
 
@@ -87,6 +119,11 @@ def validate(path: str, clean_out: str | None = None, show: int = 0):
                     # previous header never reached a matrix
                     report("header_no_matrix", recent)
                 total += 1
+                if header_field_overflow(line):
+                    field_overflow += 1
+                    if show and shown < show:
+                        shown += 1
+                        sys.stderr.write(f"--- field-overflow (misaligned at fixed offsets) ---\n   {line[:78].rstrip()}\n")
                 header, sheets, have_header = line, [], True
             elif k == "sheet":
                 if have_header:
@@ -113,6 +150,7 @@ def validate(path: str, clean_out: str | None = None, show: int = 0):
     for k, v in malformed.items():
         if v:
             print(f"    {k:18s}: {v}")
+    print(f"field-overflow (fixed-column misalignment): {field_overflow}")
     if clean_out:
         print(f"cleaned DB written     : {clean_out}  ({wellformed} records)")
     return bad

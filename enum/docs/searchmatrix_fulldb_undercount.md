@@ -101,25 +101,43 @@ finding on the correct sample.
   query set, not the DB scan. The Phase-4 relative decomposition used small-DB
   sample scans (desync-free) and stands.
 
-## The fix
+## The fix (implemented)
 
-Two options, both avoid desync:
-1. **Clean the DB**: drop malformed blocks before searching (a malformed record
-   is detectable — a matrix/`sheet` line where a `NAME.ssd` header is expected).
-2. **Chunk the search**: run each query against DB chunks (≤ a few hundred k
-   records) and union hits; a fresh parse per chunk bounds desync to one chunk's
-   tail. The proteome sweep should be re-run this way.
+**(A) Harden searchmatrix's reader — landed.** `searchControl.h` now dispatches
+each line by **type** (`.ssd` → header, `s…` → sheet, else → matrix) instead of
+the fragile `readLincon % 2` parity, guards the matrix branch on a pending header
+(so an orphan matrix is *skipped*, not blindly consumed), and discards an
+incomplete pending record when a new header arrives. A single orphan can no
+longer desync the rest of the scan. Regression: identical 38-query hit-set on
+1tim vs the old engine; on the **dirty** full DB the hardened engine recovers
+s5-0096 from 125 → ~2,178 (≈ the cleaned-DB count) — no DB cleaning required.
+Rebuild: `cd searchMatrix/src && g++ -DSILENT -O0 -w searchMatrix.cpp -o
+../build/searchmatrix`.
 
-Prefer (1) (clean once, search normally) and add a searchmatrix guard that
-re-syncs to the next `NAME.ssd` header after a malformed block instead of
-silently drifting.
+**(B) Validator + clean — landed** (`scripts/db_validate.py`). Flags the 5
+orphan records (and benign 0-SSE), and `--clean` re-emits a well-formed DB in
+11 s. Either the hardened engine *or* a cleaned DB fixes the undercount; the
+hardened engine is preferred (no preprocessing, robust to future bad records).
+
+**(C) generateMatrix output — NO change needed.** Investigated the suspected
+fixed-width "column packing": it is a **non-issue for this DB**. generateMatrix
+emits a fixed 68 bytes/SSE (`%c%c%5s--%5s %4d` + 6×`%8.3f`) that *exactly* matches
+searchmatrix's 68-byte parse stride, and **no field overflows** its width —
+`db_validate` (with the new alignment guard) reports **0** field-overflow records
+(max `NAME.ssd` = 24 ≤ 32; residues ≤ 4 digits fit `%5s`; 0 coordinates outside
+`%8.3f` range). The earlier "67,020 packed records" was a regex artifact of the
+trailing-space field format, which reads correctly at the fixed offsets. The
+latent risk (a future run with names > 32 chars, residues > 5 digits, or
+`|coord| ≥ 10000`) is now caught by the validator's `field-overflow` count, so
+generateMatrix needn't be churned unless that guard ever fires.
 
 ## Reproduce
 
 ```
-BIN=qian_package/prosmos_motif_profiler/bin/searchmatrix
-# full-DB single scan (undercounts):
-$BIN queries_graph198_alltypings/s5/s5-0096-0000.query afdb_db/metamatricesDB.clean out/   # 125
-# uniform 5000-subset (a subset, yet more hits):                                            # 424
-# chunked full DB (recovers lost hits): /tmp/chunkrun.sh
+# hardened engine on the dirty DB (no cleaning) recovers the true count:
+searchMatrix/build/searchmatrix \
+  queries_graph198_alltypings/s5/s5-0096-0000.query afdb_db/metamatricesDB.clean out/   # ~2178
+# validate / clean:
+scripts/db_validate.py afdb_db/metamatricesDB.clean            # 5 orphan_block, 0 field-overflow
+scripts/db_validate.py afdb_db/metamatricesDB.clean --clean cleaned.db
 ```

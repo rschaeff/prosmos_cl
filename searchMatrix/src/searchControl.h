@@ -286,8 +286,21 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
        //cout<<"the check is "<<check<<endl;
        if(intMline[0] !='s')
        {
-          if(readLincon % 2 == 0)
+          bool isHeader = (strstr(intMline, ".ssd") != NULL);
+          if(isHeader)
           {
+               // A header (".ssd" line) begins a record. Discard any incomplete
+               // pending record (header with no matrix) and its stray sheets, so
+               // one malformed/orphan block can't desync the rest of the scan.
+               if(judge1)
+               {
+                  for(i=0;i<mrow;i++)
+                      delete [] interActionM[i];
+                  delete [] interActionM;
+               }
+               totalsheet.clear();
+               judge1 = false;
+               judge2 = false;
                IntMnumEl.clear();
                intElecol.clear();
                mrow = intMnumofele(IntMnumEl,intMline,intElecol,pid ) ;
@@ -316,12 +329,12 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
                }
                judge1 = true;
           }
-          if(readLincon % 2 == 1)
-          //this should be processed the intaction matrix.
+          else if(judge1 && !judge2)
+          //non-header, non-sheet line = the interaction matrix. Only valid when
+          //a header is pending; an orphan matrix (no header) is skipped, which
+          //keeps the scan in sync instead of silently dropping the rest.
           {
-              cout<<"step 2 "<<endl;
               getInterActionM(interActionM, mrow , intMline,totalsheet);
-              cout<<"the step 2.5 "<<endl;
               judge2 = true;
           }
           if(judge1 == true && judge2 == true)
