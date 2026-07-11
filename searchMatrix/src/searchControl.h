@@ -409,26 +409,17 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
   strcpy(logstring,"date >> ");
   strcat(logstring,logfilename);
   system(logstring);
-  //because the pipe is not work for the new system
-  //so I just separate the pipe into two commands
-  sprintf(command2,"grep \".ssd\" %s > junk",a2);
-  system(command2);
-  strcpy(command2,"wc -l junk >> ");
-  //this I modify later used to recover code
-  //sprintf(command1,"grep \".ssd\" %s | wc -l >> ",a2);
-  strcat(command2,logfilename);
-  system(command2);
-  strcpy(command2,"rm -f junk");
-  system(command2);
+  // Removed a per-query `grep ".ssd" <DB> > junk; wc -l junk` sanity count: it
+  // re-read the entire 2.6GB DB once per query (6336 queries -> ~16TB of extra
+  // reads across a full sweep) just to log a record count the program already
+  // tracks as countpid.
   logptr = fopen(logfilename,"a");
   if(logptr == NULL)
   {
      cout<<"the file "<<logfilename<<" can't open "<<endl;
      exit(0);
-  } 
-  fprintf(logptr,"above number is got from the grep .ssd command\n");
-  fprintf(logptr,"pdb number is get by a counter in program %d  %d \n", countpid);
-  fprintf(logptr,"these two number should be same\n");
+  }
+  fprintf(logptr,"pdb number counted in program: %d\n", countpid);
   fclose(logptr);
   cout<<"the countpid is "<<countpid<<endl;
 }
