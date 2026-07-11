@@ -199,3 +199,168 @@ def passes_geom_scc_2(skel: Skeleton) -> bool:
     if skel.dim not in GEOM_WHITELIST:
         return True
     return grid_of(skel) is not None
+
+
+# ---------------------------------------------------------------------------
+# Congruence labeling: map a survivor skeleton's sequence labels onto the
+# reference-grid labels. This is what lets the per-grid reference constraints
+# (handedness triples, interaction edges) be transported onto any survivor.
+# ---------------------------------------------------------------------------
+
+def _ordered_isometry_images(pts: list[Point]) -> list[list[Point]]:
+    """Like `_isometry_images` but the caller relies on element order being
+    preserved (each image is the isometry applied element-wise)."""
+    return _isometry_images(pts)
+
+
+def _valid_labelings(skel: Skeleton, grid: str) -> list[dict[int, int]]:
+    """All distinct sequence-label -> reference-label maps from a hex isometry
+    + translation carrying `skel`'s point set onto `FIG_S3_S5[grid]`."""
+    ref = FIG_S3_S5[grid]
+    ref_set = set(ref)
+    ref_index = {pt: i + 1 for i, pt in enumerate(ref)}
+    plist = [(p.q, p.r) for p in skel.points]
+    seen: set[tuple] = set()
+    out: list[dict[int, int]] = []
+    for img in _ordered_isometry_images(plist):
+        ax, ay = img[0]
+        for rx, ry in ref:
+            dq, dr = rx - ax, ry - ay
+            shifted = [(q + dq, r + dr) for q, r in img]
+            if set(shifted) == ref_set:
+                mapping = {i + 1: ref_index[shifted[i]] for i in range(len(img))}
+                key = tuple(sorted(mapping.items()))
+                if key not in seen:
+                    seen.add(key)
+                    out.append(mapping)
+    return out
+
+
+def reference_labeling(skel: Skeleton) -> dict[int, int] | None:
+    """Map `skel`'s 1-based sequence label -> the Fig-S3 reference label.
+
+    A survivor's grid may have automorphisms → several isometries land its
+    point set on the reference, giving several valid labelings. Because a
+    triple's handedness coplanarity depends on the survivor's *sequence-parity*
+    pattern (not just positions), these labelings are NOT interchangeable for
+    handedness: some transport a paper-mandatory triple onto a coplanar
+    survivor triple. We therefore pick, deterministically:
+
+      1. the labeling maximizing the number of paper-mandatory handedness
+         triples that are non-coplanar in `skel` (so paper handedness applies);
+      2. lexicographically smallest label map among those tied.
+
+    The same labeling is used for interactions (automorphism-equivalent, so any
+    is valid there). Returns None if the skeleton matches no Fig-S3 grid. For a
+    residual set of survivors (S5: 28 — 21 f, 7 g/h) no labeling makes *all*
+    mandatory triples non-coplanar; the max-clean one is returned and the
+    coplanar mandatory triples are simply absent from that SSP's handedness
+    (a geometric fact, flagged by `mandatory_handedness_gap`).
+    """
+    grid = grid_of(skel)
+    if grid is None:
+        return None
+    from .combine import handedness_signature
+    from itertools import combinations
+    tri_index = {t: i for i, t in enumerate(combinations(range(1, skel.dim + 1), 3))}
+    sig = handedness_signature(skel)
+    mandatory = HANDEDNESS_S5_MANDATORY.get(grid, ())
+
+    def n_noncoplanar(mapping: dict[int, int]) -> int:
+        inv = {v: k for k, v in mapping.items()}         # ref label -> skel label
+        c = 0
+        for (a, b, ck) in mandatory:
+            skt = tuple(sorted((inv[a], inv[b], inv[ck])))
+            if sig[tri_index[skt]] != 0:
+                c += 1
+        return c
+
+    best: dict[int, int] | None = None
+    best_key: tuple | None = None
+    for mapping in _valid_labelings(skel, grid):
+        lex = tuple(mapping[i] for i in range(1, skel.dim + 1))
+        key = (-n_noncoplanar(mapping), lex)             # max non-coplanar, then lex-min
+        if best_key is None or key < best_key:
+            best_key, best = key, mapping
+    return best
+
+
+def paper_query_spec(skel: Skeleton, types: tuple[str, ...]) -> dict | None:
+    """Assemble the paper-faithful directive spec for one (skeleton, typing).
+
+    Transports the reference grid's minimal interactions + minimal handedness
+    onto `skel` via `reference_labeling`, in `skel`'s own 1-based labels:
+
+      grid            : Fig-S3 grid name.
+      required_edges  : frozenset{i,j} that must carry a concrete interaction.
+      optional_edges  : frozenset{i,j} lattice-adjacent but optional (-> 'X').
+      disjunction     : (edgeA, edgeB) for grid e's ">=1 mandatory" pair, or None.
+                        Callers emit two query variants (A required / B required).
+      hand_triples    : sorted (i,j,k) to emit an L/R handedness line for
+                        (mandatory, plus conditional when the typing condition
+                        holds), restricted to triples non-coplanar in `skel`.
+      hand_gap        : mandatory triples dropped because coplanar in `skel`.
+
+    Returns None if the skeleton matches no Fig-S3 grid.
+    """
+    grid = grid_of(skel)
+    phi = reference_labeling(skel)
+    if grid is None or phi is None:
+        return None
+    inv = {v: k for k, v in phi.items()}                 # ref label -> skel label
+
+    def edge(a: int, b: int) -> frozenset:
+        return frozenset((inv[a], inv[b]))
+
+    required = {edge(a, b) for a, b in INTERACTIONS_S5_REQUIRED.get(grid, ())}
+    optional = {edge(a, b) for a, b in INTERACTIONS_S5_OPTIONAL.get(grid, ())}
+    disj_ref = INTERACTIONS_S5_DISJUNCTION.get(grid)
+    disjunction = (edge(*disj_ref[0]), edge(*disj_ref[1])) if disj_ref else None
+
+    # handedness: mandatory always; conditional when the ref-labeled typing
+    # meets the grid's condition (f: 1-2-3 helix, 4-5 strand-sheet -> HHHEE).
+    ref_types = tuple(types[inv[a] - 1] for a in range(1, skel.dim + 1))
+    triples = list(HANDEDNESS_S5_MANDATORY.get(grid, ()))
+    cond = HANDEDNESS_S5_CONDITIONAL.get(grid)
+    if cond and grid == "f" and ref_types[:3] == ("H", "H", "H") and ref_types[3:] == ("E", "E"):
+        triples += list(cond[0])
+
+    from .combine import handedness_signature
+    from itertools import combinations
+    tri_index = {t: i for i, t in enumerate(combinations(range(1, skel.dim + 1), 3))}
+    sig = handedness_signature(skel)
+    hand_triples: list[tuple[int, int, int]] = []
+    hand_gap: list[tuple[int, int, int]] = []
+    for (a, b, c) in triples:
+        skt = tuple(sorted((inv[a], inv[b], inv[c])))
+        (hand_triples if sig[tri_index[skt]] != 0 else hand_gap).append(skt)
+
+    return {
+        "grid": grid,
+        "required_edges": required,
+        "optional_edges": optional,
+        "disjunction": disjunction,
+        "hand_triples": sorted(hand_triples),
+        "hand_gap": sorted(hand_gap),
+    }
+
+
+def mandatory_handedness_gap(skel: Skeleton) -> list[tuple[int, int, int]]:
+    """Paper-mandatory handedness triples (in `skel`'s labels) that are
+    geometrically coplanar in `skel` under `reference_labeling` — i.e. cannot
+    carry an L/R constraint. Empty for all but the residual degenerate set."""
+    grid = grid_of(skel)
+    phi = reference_labeling(skel)
+    if grid is None or phi is None:
+        return []
+    from .combine import handedness_signature
+    from itertools import combinations
+    tri_index = {t: i for i, t in enumerate(combinations(range(1, skel.dim + 1), 3))}
+    sig = handedness_signature(skel)
+    inv = {v: k for k, v in phi.items()}
+    gaps = []
+    for (a, b, c) in HANDEDNESS_S5_MANDATORY.get(grid, ()):
+        skt = tuple(sorted((inv[a], inv[b], inv[c])))
+        if sig[tri_index[skt]] == 0:
+            gaps.append(skt)
+    return gaps

@@ -36,6 +36,7 @@ from typing import Iterator
 from .oracle import SSPRecord
 from .skeleton import Skeleton
 from .combine import handedness_signature, _axial_to_euclidean
+from .geom_scc2 import paper_query_spec
 
 # The three hex lattice line-directions (unit vectors in Euclidean xy).
 _LINE_DIRS = [(1.0, 0.0), (0.5, math.sqrt(3) / 2), (-0.5, math.sqrt(3) / 2)]
@@ -201,11 +202,105 @@ def _build_record(
     )
 
 
+def _build_record_paper(
+    skel: Skeleton,
+    skel_id: int,
+    type_idx: int,
+    types: tuple[str, ...],
+    adj: list[list[bool]],
+    orientations: tuple[bool, ...],
+    hsig: tuple[int, ...],
+    triples: list[tuple[int, int, int]],
+    spec: dict,
+    variant: int,
+) -> SSPRecord:
+    """Paper-faithful record: minimal interactions (grid required = concrete
+    code, optional/X, grid-e disjunction resolved by `variant`) + minimal
+    handedness (`spec['hand_triples']` only). Sheets/`-`/diff-sheet as usual."""
+    n = len(types)
+    sheets = _find_sheets(types, adj)
+    sheet_of = {idx: k for k, s in enumerate(sheets) for idx in s}
+    required = spec["required_edges"]
+    optional = spec["optional_edges"]
+    disjunction = spec["disjunction"]
+    # For grid e's ">=1 mandatory" pair, this variant requires one edge and
+    # marks the other optional (X). variant 0 -> first edge; 1 -> second.
+    disj_required = disjunction[variant] if disjunction else None
+    disj_optional = disjunction[1 - variant] if disjunction else None
+
+    matrix = []
+    for i in range(n):
+        row = []
+        for j in range(n):
+            if j == i:
+                row.append("*")
+            elif j < i:
+                row.append("")
+            else:
+                ti, tj = types[i], types[j]
+                same_sheet = (
+                    ti == "E" and tj == "E"
+                    and (i + 1) in sheet_of
+                    and sheet_of[i + 1] == sheet_of.get(j + 1, -1)
+                )
+                concrete = _interaction_code(
+                    ti, tj, adjacent=True,
+                    same_dir=(orientations[i] == orientations[j]),
+                    same_sheet=same_sheet,
+                )
+                e = frozenset((i + 1, j + 1))
+                if e == disj_required:
+                    row.append(concrete)
+                elif e == disj_optional or e in optional:
+                    row.append("X")
+                elif e in required:
+                    row.append(concrete)
+                elif ti == "E" and tj == "E" and same_sheet:
+                    row.append("-")           # long-range within-sheet strand pair
+                else:
+                    row.append("X")
+        matrix.append(tuple(row))
+
+    same_sheet_dirs = tuple(tuple(s) for s in sheets if len(s) >= 2)
+
+    diff_sheet_dirs: list[tuple[int, int]] = []
+    e_indices = [k + 1 for k, t in enumerate(types) if t == "E"]
+    for ii in range(len(e_indices)):
+        for jj in range(ii + 1, len(e_indices)):
+            a = e_indices[ii]; b = e_indices[jj]
+            sa = sheet_of.get(a); sb = sheet_of.get(b)
+            if sa is not None and sb is not None and sa != sb:
+                diff_sheet_dirs.append((a, b))
+
+    tri_pos = {t: i for i, t in enumerate(triples)}
+    hand: list[tuple[int, int, int, str]] = []
+    for (i, j, k) in spec["hand_triples"]:
+        sign = hsig[tri_pos[(i, j, k)]]
+        if sign > 0:
+            hand.append((i, j, k, "R"))
+        elif sign < 0:
+            hand.append((i, j, k, "L"))
+
+    return SSPRecord(
+        dim=n,
+        skeleton_id=skel_id,
+        third_idx=0,
+        sub_first=type_idx,
+        sub_second=variant,
+        sse_types=types,
+        matrix=tuple(matrix),
+        same_sheet=same_sheet_dirs,
+        diff_sheet=tuple(diff_sheet_dirs),
+        handedness=tuple(hand),
+    )
+
+
 def skeletons_to_records(
     skeletons: list[Skeleton],
     *,
     sse_alphabet: tuple[str, ...] = ("H", "E"),
     paper_typing: bool = False,
+    paper_faithful: bool = False,
 ) -> Iterator[SSPRecord]:
     """For each skeleton, yield one SSPRecord per type assignment.
 
@@ -218,7 +313,15 @@ def skeletons_to_records(
     drops the SSPs the paper "eliminated" (S5: 6,336 -> 744 typed queries).
     `type_idx` (the query's typing sub-id) is preserved from the full 2**n
     enumeration so names stay stable and traceable.
+
+    `paper_faithful=True` (implies the typing filter) additionally applies the
+    Fig-S3 **minimal interactions** and **minimal handedness** per grid via
+    `geom_scc2.paper_query_spec` — the skeleton must map to a Fig-S3 grid (use
+    with the geometric-SCC-2 enumeration). Grid e's ">=1 mandatory" broken pair
+    is emitted as **two variants** (distinguished by `sub_second`). Skeletons
+    that match no grid are skipped.
     """
+    apply_typing = paper_typing or paper_faithful
     for skel_id, skel in enumerate(skeletons):
         n = skel.dim
         adj_tuple = skel.adjacency_matrix()
@@ -226,12 +329,23 @@ def skeletons_to_records(
         orientations = skel.orientations
         hsig = handedness_signature(skel)
         triples = list(combinations(range(1, n + 1), 3))
-        runs = collinear_runs(skel) if paper_typing else None
+        runs = collinear_runs(skel) if apply_typing else None
 
         for type_idx, types in enumerate(product(sse_alphabet, repeat=n)):
             if runs is not None and not typing_allowed(runs, types):
                 continue
-            yield _build_record(
-                skel, skel_id, type_idx, types,
-                adj, orientations, hsig, triples,
-            )
+            if not paper_faithful:
+                yield _build_record(
+                    skel, skel_id, type_idx, types,
+                    adj, orientations, hsig, triples,
+                )
+                continue
+            spec = paper_query_spec(skel, types)
+            if spec is None:
+                continue    # no Fig-S3 grid -> not paper-faithful-expressible
+            n_variants = 2 if spec["disjunction"] else 1
+            for variant in range(n_variants):
+                yield _build_record_paper(
+                    skel, skel_id, type_idx, types,
+                    adj, orientations, hsig, triples, spec, variant,
+                )
