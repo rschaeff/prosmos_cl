@@ -87,6 +87,49 @@ FIG_S3_S5: dict[str, list[Point]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Per-grid MINIMAL handedness (Chitturi 2016, "minimum number of handedness"
+# — Fig-S3 caption philosophy applied to handedness). Triples are 1-based in
+# the reference labeling above. Read from the CG-2012 oracle (reference/
+# IA-S5.txt, which reproduces the paper's per-count distribution
+# {0:45, 2:440, 6:1378, 7:826, 9:118} exactly) cross-checked against our own
+# geometric handedness signature. See scc2_handedness_stepB.md for derivation.
+#
+# The listed triples are the ones that carry an L/R constraint; the L/R value
+# itself is geometric (emitted per-skeleton from `combine.handedness_signature`
+# at query-build time). A grid's full geometric non-coplanar set can be larger
+# than its minimal list — the paper minimizes to the smallest set that keeps
+# SSPs from *distinct* grids from sharing hits.
+#
+#   d  : 0 constraints.
+#   e  : 2 (all contain the pendant node 5). Three symmetry-equivalent minimal
+#        pairs exist in the oracle; the reference-labeling pick is recorded as
+#        MANDATORY below (residual: exact geometric block-match to our labeling
+#        is still open — any of the three is a valid size-2 disambiguator).
+#   g/h: 6 = the complete geometric non-coplanar set (minimal == full).
+#   f  : 7 MANDATORY + 2 CONDITIONAL. The conditional pair {(1,4,5),(3,4,5)}
+#        turns on ONLY for the typing 1-2-3 = H, 4-5 = E (nodes 4,5 form a
+#        strand sheet) — verified in oracle block skel=41: typings EEEHH/EEEEH/
+#        EEEHE/EEEEE/HHHHH/HHHEH/HHHHE -> 7 lines; typing HHHEE -> 9 lines.
+#        Matches SI ("1,2,3 helices & 4,5 strands -> sheet").
+
+Triple = tuple[int, int, int]
+
+HANDEDNESS_S5_MANDATORY: dict[str, tuple[Triple, ...]] = {
+    "d": (),
+    "e": ((1, 4, 5), (2, 3, 5)),
+    "gh": ((1, 2, 4), (1, 2, 5), (1, 3, 4), (1, 3, 5), (2, 3, 4), (2, 3, 5)),
+    "f": ((1, 2, 4), (1, 2, 5), (1, 3, 4), (1, 3, 5),
+          (2, 3, 4), (2, 3, 5), (2, 4, 5)),
+}
+
+# Conditional handedness: {grid: (triples, condition)}. `condition` names the
+# SSE-typing that activates the extra triples (grid f only, at S5).
+HANDEDNESS_S5_CONDITIONAL: dict[str, tuple[tuple[Triple, ...], str]] = {
+    "f": (((1, 4, 5), (3, 4, 5)), "types==HHHEE (1-2-3 helix, 4-5 strand-sheet)"),
+}
+
+
 def _build_whitelist(grids: dict[str, list[Point]]) -> dict[PointSet, str]:
     return {geometric_canonical(v): k for k, v in grids.items()}
 
