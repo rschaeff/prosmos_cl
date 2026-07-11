@@ -1,0 +1,115 @@
+# searchmatrix undercounts on the full 4.92M-record DB (parser desync)
+
+Triggered by Qian's report: profiling on her cluster gave S3/S4/S5 hit rates of
+**58% / 27% / 11%**, ~20-40× above our published AFDB S5 rate of **0.31%**
+(15,327 hitting domains / 4.92M, from `s5_full_afdb/`). Investigation of whether
+this is (a) a leda/node issue or (b) a bug in our search.
+
+## Answer: (b), but NOT the cwd-race bug — searchmatrix under-scans the large DB
+
+The current search harness (`scripts/slurm_search/array.sbatch`) is correctly
+isolated: each query runs in its own `/tmp/sm_${LINE}_$$/run` cwd with its own
+`sheetbug/`. No worker-collision race. Our current engine on **small** DBs agrees
+with Qian (see below). The defect is in scanning the **full 2.6 GB / 4.92M-record**
+DB.
+
+### The airtight proof (no naming, no engine-version confound)
+
+Same current binary (`qian_package/.../bin/searchmatrix`), query `s5-0096-0000`:
+
+| DB scanned | hits |
+|---|---|
+| full 4.92M-record DB, single scan | **125** |
+| a **uniform 5,000-record subset** of that same DB | **424** |
+
+A subset **cannot** contain more hits than its superset if both are scanned
+fully. 424 sample hits ⇒ the full DB contains **≥424** hits for this query; the
+full scan reported **125** ⇒ it **missed ≥299** hits that are present and match.
+The full-DB count is **deterministic** — re-running reproduced 125 exactly, and
+`s5-0132-0000` reproduced its recorded 7,372 exactly (871–1049 s runtimes, clean
+`rc=0`). So the original `s5_full_afdb` numbers are faithfully reproduced by the
+current engine — and are undercounts.
+
+### Mechanism: parser desync from a HANDFUL of orphan records
+
+searchmatrix's reader (searchControl.h:277-324) parses records by an **even/odd
+line counter**: non-`s` lines alternate HEADER (must contain `.ssd`) and MATRIX
+(`*...`); `s`-prefixed sheet lines are skipped. It assumes every record is
+exactly `[header] [0+ sheet lines] [one matrix line]`. The recovery on a detected
+orphan is incomplete.
+
+Validating the DB (`scripts/db_validate.py`, which simulates this exact parser)
+finds only **5 truly malformed records** in 4.92M — orphan `sheet`+`matrix`
+blocks with **no header line** (a generateMatrix glitch, first cluster at records
+67,224-68,309). Those 5 desync the alternation, and the incomplete recovery drops
+hits across the large downstream region. Loss is region/query-dependent:
+`s5-0132` kept 7,372; `s5-0096` fell to 125. Chunking (fresh parse per chunk)
+recovers most (`s5-0096`: 125 → 2,098 over 20 chunks; finer chunks recover more).
+**5 bad records in 4.92M silently crippled the entire scan.**
+
+Separately, `db_validate` flags ~6,231 benign 0-SSE records (count field 0, a
+blank line serves as the empty matrix — searchmatrix stays in sync on these).
+
+### A second, deeper vulnerability: fixed-width column overflow
+
+The `.ssd`/matrix format is **fixed-column**. When a residue number reaches 4
+digits (≥1000) or an SSE count reaches 2 digits, the value overflows its field
+and **packs against the adjacent token** with no delimiter: `8HA1163 --1173`
+(residue 1163) or `62HA` (count 62). **67,020 records (1.36%)** show this packing.
+searchmatrix parses SSE elements at fixed offsets, so packed records are at risk
+of mis-parse. (This packing also silently inflated an earlier "32k 0-SSE" count
+to 5× its true value — a regex was fooled by the same overflow.) This is the
+"vulnerable to truncation" concern: a validator catches it, but the format itself
+has no framing/delimiters to prevent it.
+
+## The true population S5 hit rate
+
+Current engine on a **uniform-random 5,000-rep** sample (seed 20260711;
+representative — 56.6% have ≥5 SSEs, matching the population sieve), scanning
+desync-free small DBs:
+
+| query set | hitters / 5000 | hit % | dark % |
+|---|---|---|---|
+| all-typings (old basis, 198≡140) | 1229 | **24.6** | 75.4 |
+| paper-faithful (all 3 rules) | 635 | **12.7** | 87.3 |
+
+Consistent with Qian's independent 11% (her test set differs). The published
+**0.31%** is a searchmatrix full-DB-scan artifact, undercounted **~40-80×**. The
+paper-faithful rules still halve hits (24.6% → 12.7%), reproducing the Phase-4
+finding on the correct sample.
+
+## Consequences
+
+- **The darkness fraction is wrong quantitatively.** "99.7% dark / 0.55% hit" is
+  a scan artifact. True S5 darkness is the **majority (~83-89%)** but not
+  near-total, and ~15,327 "hitting domains" is really **hundreds of thousands**.
+- **The negative-space (800/800 zero-hit) result must be rechecked** — those
+  queries were run against the full DB and could have lost hits to desync.
+- **The D1/D2, dark-gallery, and rarefaction analyses** all sit on full-DB search
+  outputs and need redoing on de-synced-safe scans.
+- **The geometric-SCC-2 / paper-faithful work is unaffected** — it is about the
+  query set, not the DB scan. The Phase-4 relative decomposition used small-DB
+  sample scans (desync-free) and stands.
+
+## The fix
+
+Two options, both avoid desync:
+1. **Clean the DB**: drop malformed blocks before searching (a malformed record
+   is detectable — a matrix/`sheet` line where a `NAME.ssd` header is expected).
+2. **Chunk the search**: run each query against DB chunks (≤ a few hundred k
+   records) and union hits; a fresh parse per chunk bounds desync to one chunk's
+   tail. The proteome sweep should be re-run this way.
+
+Prefer (1) (clean once, search normally) and add a searchmatrix guard that
+re-syncs to the next `NAME.ssd` header after a malformed block instead of
+silently drifting.
+
+## Reproduce
+
+```
+BIN=qian_package/prosmos_motif_profiler/bin/searchmatrix
+# full-DB single scan (undercounts):
+$BIN queries_graph198_alltypings/s5/s5-0096-0000.query afdb_db/metamatricesDB.clean out/   # 125
+# uniform 5000-subset (a subset, yet more hits):                                            # 424
+# chunked full DB (recovers lost hits): /tmp/chunkrun.sh
+```
