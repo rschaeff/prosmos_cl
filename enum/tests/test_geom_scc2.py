@@ -84,6 +84,42 @@ def test_geometric_is_strict_subset_and_drops_are_grid_e_graph():
         _reset()
 
 
+def test_interaction_sets_partition_grid_lattice_edges():
+    """REQUIRED ∪ DISJUNCTION ∪ OPTIONAL must equal each grid's lattice edges."""
+    from ssp_enum.lattice import LatticePoint
+    from ssp_enum.geom_scc2 import (
+        FIG_S3_S5, INTERACTIONS_S5_REQUIRED as REQ,
+        INTERACTIONS_S5_DISJUNCTION as DIS, INTERACTIONS_S5_OPTIONAL as OPT,
+    )
+    for g, pts in FIG_S3_S5.items():
+        P = [LatticePoint(q, r, 0) for q, r in pts]
+        lattice = {(i + 1, j + 1) for i in range(len(P)) for j in range(i + 1, len(P))
+                   if P[i].is_adjacent(P[j])}
+        req, dis, opt = set(REQ[g]), set(DIS.get(g, ())), set(OPT.get(g, ()))
+        assert req & dis == set() and req & opt == set() and dis & opt == set(), g
+        assert req | dis | opt == lattice, (g, sorted(lattice), sorted(req | dis | opt))
+
+
+def test_handedness_lists_are_subsets_of_geometric_noncoplanar():
+    from itertools import combinations
+    from ssp_enum.lattice import LatticePoint
+    from ssp_enum.skeleton import Skeleton
+    from ssp_enum.combine import handedness_signature
+    from ssp_enum.geom_scc2 import (
+        FIG_S3_S5, HANDEDNESS_S5_MANDATORY as M, HANDEDNESS_S5_CONDITIONAL as C,
+    )
+    TRI = list(combinations(range(1, 6), 3))
+    for g, pts in FIG_S3_S5.items():
+        s = Skeleton(points=tuple(LatticePoint(q, r, 0) for q, r in pts), start_up=True)
+        nc = {TRI[i] for i, v in enumerate(handedness_signature(s)) if v != 0}
+        assert set(M[g]) <= nc, g
+        if g in C:
+            assert set(C[g][0]) <= nc, g
+    # counts match paper per-grid minimal numbers
+    assert (len(M["d"]), len(M["e"]), len(M["gh"]), len(M["f"])) == (0, 2, 6, 7)
+    assert len(C["f"][0]) == 2  # f: 7 + 2 conditional = 9 = full non-coplanar
+
+
 def test_s3_s4_unaffected_by_mode():
     try:
         for n in (3, 4):

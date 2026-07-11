@@ -130,6 +130,48 @@ HANDEDNESS_S5_CONDITIONAL: dict[str, tuple[tuple[Triple, ...], str]] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Per-grid MINIMAL interactions (Chitturi 2016 Fig-S3 line styles). Read
+# directly off Fig S3 (SI page 11); see scc2_interactions_stepB.md. Verified:
+# for every grid, REQUIRED ∪ DISJUNCTION ∪ OPTIONAL-X partitions the grid's
+# full lattice-edge set exactly.
+#
+# Fig-S3 caption: "Solid lines indicate an interaction. In Fig 5(e) two broken
+# lines indicate that at least one of the interactions is mandatory. Through
+# experimentation we determined the minimum number of (specific) interactions
+# for each grid so that SSPs derived from skeletons (that induce distinct grids)
+# do not have common hits."
+#
+#   REQUIRED  (solid) : concrete interaction demanded in the SSP query.
+#   DISJUNCTION (broken): "≥1 mandatory" set — at least one must hold (grid e).
+#   optional (X)      : lattice-adjacent but not required (the remaining grid
+#                       edges); marked X/wildcard in the query.
+#
+# Edges are 1-based in the reference labeling (`FIG_S3_S5`), which matches the
+# Fig-S3 node labels for every S5 grid.
+
+INTERACTIONS_S5_REQUIRED: dict[str, tuple[tuple[int, int], ...]] = {
+    "d": ((1, 2), (2, 3), (3, 4), (4, 5)),               # P5 path
+    "e": ((1, 2), (2, 3), (3, 4)),                       # collinear run
+    "f": ((1, 2), (2, 3), (3, 4), (4, 5), (1, 5)),       # 5-cycle ring
+    "gh": ((1, 2), (2, 3), (2, 4), (2, 5)),              # K1,4 star (centre 2)
+}
+
+# "at least one of these is mandatory" (broken lines). Grid e only, at S5.
+INTERACTIONS_S5_DISJUNCTION: dict[str, tuple[tuple[int, int], ...]] = {
+    "e": ((2, 5), (3, 5)),
+}
+
+# Lattice-adjacent but optional (X). = grid lattice edges minus required minus
+# disjunction. f: the two spokes into the centre of the ring; g/h: leaf-leaf.
+INTERACTIONS_S5_OPTIONAL: dict[str, tuple[tuple[int, int], ...]] = {
+    "d": (),
+    "e": (),
+    "f": ((2, 4), (2, 5)),
+    "gh": ((1, 5), (3, 4)),
+}
+
+
 def _build_whitelist(grids: dict[str, list[Point]]) -> dict[PointSet, str]:
     return {geometric_canonical(v): k for k, v in grids.items()}
 
