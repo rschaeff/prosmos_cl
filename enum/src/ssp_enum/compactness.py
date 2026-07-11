@@ -28,8 +28,27 @@ Three criteria define compactness (paraphrased from the paper):
 from __future__ import annotations
 
 from .grids import is_in_whitelist
+from .geom_scc2 import passes_geom_scc_2
 from .lattice import LatticePoint
 from .skeleton import Skeleton
+
+# SCC-2 backend selector. The historic default is the *graph*-based whitelist
+# (`grids.is_in_whitelist`), on which the current S5=198 darkness/negspace
+# analysis rests. `"geometric"` switches to Fig-S3 hex-congruence
+# (`geom_scc2.passes_geom_scc_2`), the paper-faithful test (S5 -> 140). Kept as
+# a module toggle so the enumerator (which calls `is_compact` with no params
+# through a recursion) can be flipped without threading a parameter, and so
+# A/B comparison and regression stay one line apart.
+_SCC2_MODE = "graph"  # "graph" | "geometric"
+
+
+def set_scc2_mode(mode: str) -> str:
+    """Set the SCC-2 backend ("graph" or "geometric"); returns the previous mode."""
+    global _SCC2_MODE
+    if mode not in ("graph", "geometric"):
+        raise ValueError(f"unknown SCC-2 mode: {mode!r}")
+    prev, _SCC2_MODE = _SCC2_MODE, mode
+    return prev
 
 
 def passes_pcc(skel: Skeleton) -> bool:
@@ -112,7 +131,13 @@ def passes_scc_2(skel: Skeleton) -> bool:
     The whitelist is held in `grids.WHITELIST` per dimension. At dim ≤ 2
     the lattice arrangement is trivially unique; at dim ≥ 6 we don't
     have a whitelist defined yet, so SCC-2 vacuously passes.
+
+    Backend is selected by `_SCC2_MODE` (see `set_scc2_mode`): the default
+    `"graph"` uses the unlabeled-adjacency whitelist; `"geometric"` uses
+    Fig-S3 hex-congruence (the paper-faithful test).
     """
+    if _SCC2_MODE == "geometric":
+        return passes_geom_scc_2(skel)
     return is_in_whitelist(skel)
 
 
