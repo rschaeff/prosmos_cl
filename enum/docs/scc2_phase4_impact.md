@@ -61,13 +61,16 @@ effect is **almost entirely the typing rule** (Rule 1); the minimality relaxatio
 ### Caveat — these are RELATIVE, not population, rates
 
 The fresh `_build_record` queries hit 23% of this stride-sample, whereas the full
-S5 search hit ~0.55% of AFDB, and the qian-package 198 queries hit 4.5% of *this*
-sample. So (a) the stride sample is enriched for hitters vs a uniform draw, and
-(b) the fresh queries are more permissive than the qian set (478 vs 93 on the
-same sample — an unreconciled generation difference). **Absolute dark% here is
-not the population darkness.** Only the *relative* comparisons above — all within
-the fresh same-code-path family — are valid; they isolate the basis-change and
-rule effects cleanly.
+S5 search hit ~0.55% of AFDB. This gap is **sample enrichment**: every-2400th
+stride sampling on an ordered DB lands on large, SSE-rich (hittable) records far
+more often than a uniform draw would (most of AFDB is small domains that cannot
+form any S5 motif). So **absolute dark% here is not the population darkness** —
+only the *relative* comparisons above (all on the same sample) are valid.
+
+Reconciled: the fresh graph-198 queries are **byte-identical** to the qian-package
+198 queries (all 6336 files) and give the **identical** hit set (478/2050). An
+earlier apparent "qian = 93" was an incomplete read of a still-running probe, not
+a real generation difference — there is **no** query-permissiveness gap.
 
 ## Verdict (go/no-go)
 
@@ -88,10 +91,11 @@ rule effects cleanly.
   the structure actually shows). The 20 dark-gallery structures are *geometrically*
   dark (0 hits even rules-off); 1tim is *rule-induced* dark. That distinction is
   a cleaner, more defensible story than a single "dark fraction."
-- **To reconcile before any absolute-number claim:** the fresh-vs-qian query
-  permissiveness gap (478 vs 93) — the darkness analysis's real "old basis" is
-  whatever query set produced the 0.55%, which must be pinned before quoting a
-  paper-faithful population dark fraction.
+- **Before any absolute-number claim:** re-run the decomposition on a
+  **uniform-random** AFDB draw (not the stride sample) so the paper-faithful
+  population dark fraction is quotable. The query side is settled — fresh graph-198
+  == qian-198 byte-for-byte — so only the sampling needs redoing; the relative
+  effects (basis-neutral; typing rule halves hits) are expected to hold.
 
 ## Reproduce
 
