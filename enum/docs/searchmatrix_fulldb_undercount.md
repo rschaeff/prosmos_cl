@@ -13,22 +13,32 @@ isolated: each query runs in its own `/tmp/sm_${LINE}_$$/run` cwd with its own
 with Qian (see below). The defect is in scanning the **full 2.6 GB / 4.92M-record**
 DB.
 
-### The airtight proof (no naming, no engine-version confound)
+### The airtight proof (same query, same structures, clean vs dirty DB)
 
-Same current binary (`qian_package/.../bin/searchmatrix`), query `s5-0096-0000`:
+Same current binary (`qian_package/.../bin/searchmatrix`), same graph-198 query
+`s5-0096-0000`, over the same 4.92M structures:
 
 | DB scanned | hits |
 |---|---|
-| full 4.92M-record DB, single scan | **125** |
-| a **uniform 5,000-record subset** of that same DB | **424** |
+| **dirty** full DB, single scan | **125** |
+| dirty full DB split into 20 chunks, summed | **2,098** |
+| **cleaned** full DB (5 orphan records removed), single scan | **2,178** |
 
-A subset **cannot** contain more hits than its superset if both are scanned
-fully. 424 sample hits ⇒ the full DB contains **≥424** hits for this query; the
-full scan reported **125** ⇒ it **missed ≥299** hits that are present and match.
-The full-DB count is **deterministic** — re-running reproduced 125 exactly, and
-`s5-0132-0000` reproduced its recorded 7,372 exactly (871–1049 s runtimes, clean
-`rc=0`). So the original `s5_full_afdb` numbers are faithfully reproduced by the
-current engine — and are undercounts.
+The only difference between the 125 and the 2,178 is the **5 orphan records**
+`db_validate` removed — so those 5 records cost **~94%** of this query's hits.
+Chunking (fresh parse per chunk) independently recovers the same ~2,098. The
+full-DB count is deterministic (re-runs reproduce 125; `s5-0132-0000` reproduces
+its recorded 7,372 exactly, 871–1049 s, clean `rc=0`), so the original
+`s5_full_afdb` numbers are faithfully reproduced — and are undercounts.
+
+Even sharper — the per-chunk breakdown: **chunk 0 alone (records 0–246k) = 125**,
+*exactly* the whole dirty-DB count. The scan dies at the first orphan (record
+~67k) and silently drops chunks 1–19 (**95% of the DB**).
+
+(An earlier "subset of 424 out-hits the full DB's 125" framing was retracted: the
+424 came from a `geom-140`-numbered query, a *different* skeleton than the
+`graph-198` `s5-0096`. The clean-vs-dirty comparison above is same-query and
+needs no cross-set comparison.)
 
 ### Mechanism: parser desync from a HANDFUL of orphan records
 
