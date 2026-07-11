@@ -51,8 +51,26 @@ HITS="$OUT/hits/${NAME}"
 mkdir -p "$HITS" "$OUT/parts" "$OUT/logs"
 cd "$LOCAL/run"
 
+# Stage the DB to node-local /tmp, SHARED across all tasks on this node. Every
+# task otherwise streams the whole 2.6GB DB from NFS; dozens running at once
+# saturate NFS and quadruple scan time (604s -> ~2500s), besides hammering a
+# shared filesystem. A per-node local copy cuts NFS reads from (n_queries x DB)
+# ~16TB to (n_nodes x DB) ~130GB; a flock serializes the first-copy race so only
+# one task per node copies while the rest wait and then reuse it.
+STAGE_DIR="/tmp/prosmos_db"
+LOCAL_DB="$STAGE_DIR/$(basename "$DB")"
+mkdir -p "$STAGE_DIR"
+exec 9>"$STAGE_DIR/.copy.lock"
+flock 9
+if [ ! -s "$LOCAL_DB" ] || [ "$(stat -c%s "$LOCAL_DB" 2>/dev/null)" != "$(stat -c%s "$DB")" ]; then
+    cp "$DB" "$LOCAL_DB.partial" && mv -f "$LOCAL_DB.partial" "$LOCAL_DB"
+fi
+flock -u 9
+DB_TO_SEARCH="$LOCAL_DB"
+[ -s "$DB_TO_SEARCH" ] || DB_TO_SEARCH="$DB"   # fall back to NFS if staging failed
+
 START=$(date +%s)
-"$SEARCH" "$QUERY" "$DB" "$HITS" > "$LOCAL/stdout.log" 2>&1
+"$SEARCH" "$QUERY" "$DB_TO_SEARCH" "$HITS" > "$LOCAL/stdout.log" 2>&1
 RC=$?
 END=$(date +%s)
 ELAPSED=$((END - START))
