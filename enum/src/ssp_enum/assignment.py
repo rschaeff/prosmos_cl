@@ -29,12 +29,62 @@ Codes follow `prosmos.py` Methods (paper §1.1) plus the lower-case
 
 from __future__ import annotations
 
+import math
 from itertools import combinations, product
 from typing import Iterator
 
 from .oracle import SSPRecord
 from .skeleton import Skeleton
-from .combine import handedness_signature
+from .combine import handedness_signature, _axial_to_euclidean
+
+# The three hex lattice line-directions (unit vectors in Euclidean xy).
+_LINE_DIRS = [(1.0, 0.0), (0.5, math.sqrt(3) / 2), (-0.5, math.sqrt(3) / 2)]
+
+
+def collinear_runs(skel: Skeleton) -> list[frozenset[int]]:
+    """Maximal runs of >=3 consecutive unit-spaced collinear nodes.
+
+    A "collinear run" is a set of nodes on a common hex line-direction whose
+    consecutive positions along that line differ by one lattice unit — i.e. a
+    strand-sheet-like chain. Returns 0-based node index sets. (Chitturi 2016
+    SI, SSE-assignment constraints following Fig. S2.)
+    """
+    pts = [_axial_to_euclidean(p) for p in skel.points]
+    runs: list[frozenset[int]] = []
+    for ux, uy in _LINE_DIRS:
+        px, py = -uy, ux  # perpendicular
+        lines: dict[float, list[tuple[float, int]]] = {}
+        for i, (x, y) in enumerate(pts):
+            lines.setdefault(round(x * px + y * py, 4), []).append(
+                (round(x * ux + y * uy, 4), i))
+        for members in lines.values():
+            members.sort()
+            run = [members[0]]
+            for k in range(1, len(members)):
+                if abs(members[k][0] - run[-1][0] - 1.0) < 1e-3:
+                    run.append(members[k])
+                else:
+                    if len(run) >= 3:
+                        runs.append(frozenset(m[1] for m in run))
+                    run = [members[k]]
+            if len(run) >= 3:
+                runs.append(frozenset(m[1] for m in run))
+    return runs
+
+
+def typing_allowed(runs: list[frozenset[int]], types: tuple[str, ...]) -> bool:
+    """Paper SSE-assignment rule (Chitturi 2016 SI, §after Fig. S2):
+    a run of exactly three collinear points must be all-strand or all-helix;
+    a run of four or more collinear points must be all-strand (a beta sheet).
+    SSPs violating this "do not exist in the database"."""
+    for run in runs:
+        tir = [types[i] for i in run]
+        if len(run) >= 4:
+            if not all(t == "E" for t in tir):
+                return False
+        elif not (all(t == "E" for t in tir) or all(t == "H" for t in tir)):
+            return False
+    return True
 
 
 def _interaction_code(
@@ -155,12 +205,19 @@ def skeletons_to_records(
     skeletons: list[Skeleton],
     *,
     sse_alphabet: tuple[str, ...] = ("H", "E"),
+    paper_typing: bool = False,
 ) -> Iterator[SSPRecord]:
     """For each skeleton, yield one SSPRecord per type assignment.
 
     With the default `sse_alphabet=('H','E')` and skeleton dim n, emits
     `2**n` records per skeleton. Records are deterministic in
     (skeleton position in `skeletons`, lexicographic type index).
+
+    `paper_typing=True` applies the Chitturi 2016 SSE-assignment constraint
+    (`typing_allowed`): collinear runs must be all-strand or all-helix. This
+    drops the SSPs the paper "eliminated" (S5: 6,336 -> 744 typed queries).
+    `type_idx` (the query's typing sub-id) is preserved from the full 2**n
+    enumeration so names stay stable and traceable.
     """
     for skel_id, skel in enumerate(skeletons):
         n = skel.dim
@@ -169,8 +226,11 @@ def skeletons_to_records(
         orientations = skel.orientations
         hsig = handedness_signature(skel)
         triples = list(combinations(range(1, n + 1), 3))
+        runs = collinear_runs(skel) if paper_typing else None
 
         for type_idx, types in enumerate(product(sse_alphabet, repeat=n)):
+            if runs is not None and not typing_allowed(runs, types):
+                continue
             yield _build_record(
                 skel, skel_id, type_idx, types,
                 adj, orientations, hsig, triples,
