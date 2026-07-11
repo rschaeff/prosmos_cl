@@ -93,8 +93,17 @@ void searchControl::checksheetH(char **intactionM,int row,vector<sheet>&totalshe
    strcpy(sheetfilename ,"../sheetbug/");
    strcat(sheetfilename , pid);
    strcat(sheetfilename ,"sheet.bug");
-   strcpy(command, "mkdir  -p  ../sheetbug/" );
-   system(command);
+   // checksheetH runs once PER DB RECORD, so a system("mkdir") here was a
+   // fork+exec of mkdir for every one of ~5M records -- ~92% of per-record
+   // runtime (12x slowdown). The directory only needs to exist once; make it
+   // once per process.
+   static bool sheetdir_made = false;
+   if(!sheetdir_made)
+   {
+      strcpy(command, "mkdir  -p  ../sheetbug/" );
+      system(command);
+      sheetdir_made = true;
+   }
    char sheetbugfilename[50];
    strcpy(sheetbugfilename , "../sheetbug/total.txt");
    fvetc = fopen(sheetbugfilename, "a");
