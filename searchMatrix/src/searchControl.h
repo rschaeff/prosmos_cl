@@ -20,6 +20,20 @@
 #include <sys/types.h>
 #include <unistd.h>
 using namespace std;
+
+// One preloaded query for the inverted (all-queries-per-record) search: the
+// parsed query matrix plus its element / handedness / require constraints and
+// the per-query output directory. Loading N queries once lets the DB be parsed
+// a single time instead of once per query.
+struct QuerySpec {
+    char **quryMatrix;
+    int qrow;
+    vector<elecol> qElecol;
+    vector<handness> totalhandqury;
+    vector<require> totalrequire;
+    string outpath;
+};
+
 class searchControl
 {
   private :
@@ -245,25 +259,57 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
   cout<<"a3 is "<<a3<<endl;
   sprintf(command, "mkdir  -p %s  ", a3 );
   system(command);
-  strcpy(qfilename,a1);
-  ifstream inputfile(qfilename,ios::in);
-  if(!inputfile)
+  // ---- Load ALL queries (manifest) once; the DB is parsed a single time
+  // below and every query is tested against each record (loop inversion). a1 is
+  // either a MANIFEST (one query-file path per line) or a single .query file
+  // (back-compatible: single query writes hits directly to a3 as before).
+  // Detection: if a1's first line names an existing regular file -> manifest.
+  vector<string> qpaths;
+  bool is_manifest = false;
   {
-      cout<<"the "<<qfilename<<" can't open "<<endl;
-      exit(0);
+    ifstream probe(a1, ios::in);
+    string fl; getline(probe, fl);
+    while(!fl.empty() && (fl[fl.size()-1]=='\r'||fl[fl.size()-1]==' '||fl[fl.size()-1]=='\t')) fl.erase(fl.size()-1);
+    struct stat st;
+    if(!fl.empty() && stat(fl.c_str(), &st)==0 && S_ISREG(st.st_mode)) is_manifest = true;
   }
-  inputfile.getline(quline,1000,'\n');
-  checkNumberLine(quline); //Why is the query matrix limited to 10x10? *rds 11/08/2010
-  inputfile.getline(quline,1000,'\n');
-  qrow = quNumOfele((char *)quline , qElecol);
-  cout<<"qrow is "<<qrow<<endl;
-  quryMatrix = new char *[qrow];
-  for(i=0;i<qrow;i++)
-  {
-     quryMatrix[i] = new char[qrow];
+  if(is_manifest) {
+    ifstream mf(a1, ios::in); string line;
+    while(getline(mf, line)) {
+      while(!line.empty() && (line[line.size()-1]=='\r'||line[line.size()-1]==' '||line[line.size()-1]=='\t')) line.erase(line.size()-1);
+      if(!line.empty()) qpaths.push_back(line);
+    }
+  } else {
+    qpaths.push_back(string(a1));
   }
-  //this step I will get the quryMatrix.
-    formqMatrix(quryMatrix, qrow,inputfile,totalhandqury,totalrequire);
+  vector<QuerySpec> queries;
+  int minqrow = 1000000000;
+  for(size_t qi=0; qi<qpaths.size(); qi++) {
+    ifstream qf(qpaths[qi].c_str(), ios::in);
+    if(!qf) { cout<<"can't open query "<<qpaths[qi]<<endl; continue; }
+    QuerySpec qs;
+    qf.getline(quline,1000,'\n');
+    checkNumberLine(quline);
+    qf.getline(quline,1000,'\n');
+    qs.qrow = quNumOfele((char *)quline, qs.qElecol);
+    qs.quryMatrix = new char *[qs.qrow];
+    for(i=0;i<qs.qrow;i++) qs.quryMatrix[i] = new char[qs.qrow];
+    formqMatrix(qs.quryMatrix, qs.qrow, qf, qs.totalhandqury, qs.totalrequire);
+    if(is_manifest) {
+      string qp = qpaths[qi];
+      size_t sl = qp.find_last_of('/');
+      string base = (sl==string::npos)? qp : qp.substr(sl+1);
+      size_t dot = base.rfind(".query");
+      if(dot!=string::npos && dot==base.size()-6) base = base.substr(0,dot);
+      qs.outpath = string(a3) + base + "/";
+      string mkc = "mkdir -p '" + qs.outpath + "'"; system(mkc.c_str());
+    } else {
+      qs.outpath = string(a3);   // back-compat: hits directly in a3
+    }
+    if(qs.qrow < minqrow) minqrow = qs.qrow;
+    queries.push_back(qs);
+  }
+  cout<<"loaded "<<queries.size()<<" queries"<<endl;
   /*
   for(i=0;i<qrow;i++)
   {
@@ -322,8 +368,6 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
                    judge2 = false;
                    continue;
                }
-               cout<<"the step 1 "<<endl;
-               cout<<"the mrow is "<<mrow<<endl;
               // cout<<"the intMline is "<<intMline<<endl;
                /*
                cout<<"the size of intElecol is "<<intElecol.size()<<endl;
@@ -348,26 +392,23 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
           }
           if(judge1 == true && judge2 == true)
           {
-		  cout<<"inside j1j2 loop"<<endl;
-              //this step when the interAction matrix form finished, I just do the search.
-              totalpass.clear();
-              //this function I will print the strand with no h-bond with other strands
-              //in the ../sheetbug/total.txt file
-              checksheetH(interActionM , mrow , totalsheet,pid,intElecol);
-              searchM(intElecol,interActionM, mrow,qElecol,quryMatrix,qrow,totalpass,IntMnumEl);
-              //IntMnumEl this parameter is the matrixElment data type vector
-              //totalhandqury,totalrequire these two parameter are the handness information and
-              //other require information in the qury matrix.
-              //totalsheet is the
-	      cout<<"selectMatrix entry point"<<endl;
-	      cout<<"selectMatrix: totalrequire size: "<<totalrequire.size()<<endl;
-              selectMatrix(IntMnumEl,totalhandqury,totalrequire,totalpass,totalsheet,intElecol,interActionM);
-	      cout<<"printOuptfile entry point"<<endl;
-              printOuptfile(totalpass,IntMnumEl,pid,a3);
-	      cout<<"the step 3"<<endl;
-	      cout<<"totalsheet size: "<<totalsheet.size()<<endl;
+              // Record fully parsed. Run EVERY loaded query against it (loop
+              // inversion): the DB record is parsed once here, not once per query.
+              // checksheetH is record-dependent -> once per record. Size early-exit:
+              // a record with fewer SSEs than the smallest query cannot satisfy any.
+              if(mrow >= minqrow)
+              {
+                  checksheetH(interActionM , mrow , totalsheet,pid,intElecol);
+                  for(size_t qi=0; qi<queries.size(); qi++)
+                  {
+                      if(queries[qi].qrow > mrow) continue;
+                      totalpass.clear();
+                      searchM(intElecol,interActionM, mrow,queries[qi].qElecol,queries[qi].quryMatrix,queries[qi].qrow,totalpass,IntMnumEl);
+                      selectMatrix(IntMnumEl,queries[qi].totalhandqury,queries[qi].totalrequire,totalpass,totalsheet,intElecol,interActionM);
+                      printOuptfile(totalpass,IntMnumEl,pid,(char *)queries[qi].outpath.c_str());
+                  }
+              }
               totalsheet.clear();
-	      cout<<"the step 3.5"<<endl;
               for(i=0;i<mrow;i++)
                   delete [] interActionM[i];
               delete [] interActionM;
@@ -1250,7 +1291,6 @@ int searchControl::intMnumofele(vector<matrixElment> &b  , char *oneline,vector<
     while(u < 19 && pid[u]!=' ')
       u++;
     pid[u] = '\0';
-    cout<<"the pid is "<<pid<<endl;
     temp.assign(cpline,32,4);
     numberElment = atoi(temp.c_str());
     int col = 0;
@@ -1805,22 +1845,28 @@ void searchControl::printOuptfile(vector<fpass> &totalpass,vector<matrixElment> 
    cout<<"the pid is "<<pid<<endl;
    cout<<"the path1 is "<<path1<<endl;
    int t = 0;
+   // Work on a LOCAL COPY of pid. In the inverted (all-queries-per-record)
+   // loop this is called once per matching query for the same record, and the
+   // original mangled `pid` in place (stripping .ssd, appending .txt), which
+   // corrupted the name for the next query on that record.
+   char pidbuf[256];
+   strncpy(pidbuf, pid, sizeof(pidbuf)-1); pidbuf[sizeof(pidbuf)-1]='\0';
    //here I modify the file name, get the name end up with .ssd
-   while(pid[t] != '\0')
+   while(pidbuf[t] != '\0')
      t++;
-   pid[t-4] = '\0';
+   pidbuf[t-4] = '\0';
   // pid[t]='\0';
    if(int(totalpass.size())>0)
    {
       strcpy(pid1,"pdb");
-      strcat(pid,".txt");
-      strcat(pid1,pid);
+      strcat(pidbuf,".txt");
+      strcat(pid1,pidbuf);
       strcpy(pid2,pid1);
       t = 0;
       while(pid2[t] !='\0')
         t++;
       pid2[t-4]='\0';
-      cout<<"after cat pid is "<<pid<<endl; 
+      /*perf*/
       strcat(path1,pid1);
       fileptr = fopen(path1,"w");
       if(fileptr == NULL)
