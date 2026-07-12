@@ -3,39 +3,40 @@
 Branch: `s5-matrix-temporal-promiscuity`. All work committed except the live SLURM
 sweep (running). Read this first after a compaction.
 
-## LIVE STATE — a full-scale search is RUNNING (needs follow-up on completion)
+## LIVE STATE — the corrected search is RUNNING as a LOOP-INVERSION job
 
-- **SLURM jobs:** `622256 622257 622258 622259 622260 622261 622262` (7 chained
-  array chunks, 1000 tasks each, %200 concurrency, `--time=08:00:00`) + merge
-  `622263`. Watch: `squeue -j 622256 ...`.
-- **What:** the 6,336 graph-198 S5 queries (`queries_graph198_alltypings/s5`,
-  byte-identical to the original `s5_full_afdb`) re-run on the **hardened +
-  fast** searchmatrix against the full 4.92M-record DB
-  (`work/prosmos_2026/afdb_db/metamatricesDB.clean`). Output →
-  `work/prosmos_2026/s5_full_afdb_hardened/`.
-- **Why:** the original `s5_full_afdb` (0.31% hitters / 15,327 domains) was a
-  searchmatrix **undercount** (see below). This is the corrected sweep.
-- **Speed/ETA:** ~400–500s/query (node-local DB staging), ~46 concurrent
-  (cluster contention), **~15h**, 0 failures so far. 8h/task limit → no timeout
-  truncation.
-- **Completion handler:** `/tmp/sweep_done.sh` (log `/tmp/sweep_done.log`) waits
-  for `s5_full_afdb_hardened/summary.tsv`, then writes:
-  - `distinct_hitters.txt` — distinct hitting structures (= corrected dark fraction),
-  - `failed_queries.txt` — any `rc!=0` (timeouts) to retry.
-  It prints `SWEEP_ANALYSIS_DONE`. (If the handler died in the compaction, re-run
-  the same analysis by hand from `summary.tsv` + `hits/`.)
+**NOTE (updated end of session):** the per-query sweep I launched (jobs
+622256–262) was superseded. The **loop inversion was implemented** (by parallel
+work — `scripts/slurm_search/array_inverted.sbatch` + `submit_inverted.sh`, and
+`searchMatrix/build/searchmatrix` rebuilt; backup `searchmatrix.pre-inversion.bak`)
+and is now the active corrected run.
 
-### On completion — DO THIS
-1. **Corrected headline:** `wc -l distinct_hitters.txt` = true hitter count.
-   Compare to original 15,327 (0.31%). Expected ~12–25% (my uniform-5000 probe
-   gave 24.6% all-typings). Dark fraction = 1 − hitters/4,921,931.
-2. **Retry pass:** if `failed_queries.txt` non-empty, re-run those with 8h via
-   `scripts/slurm_search/submit.sh` (build a QDIR of just those `.query` files).
-3. **Negative space:** the 800/800 zero-hit negspace result (`enum/negspace_queries/`,
-   memory `project_negspace_finding`) was computed on the BUGGY engine — recheck
-   which enumerated skeletons still never hit on the corrected sweep.
-4. Aborted NFS-bound run's partial output is at `s5_full_afdb_hardened_nfsbound_aborted/`
-   (can delete).
+- **SLURM job:** `622485` (`prosmos-inv`). Architecture = my loop-inversion spec:
+  the DB is split into **800 chunks** (`s5_inv/chunks/`, `chunks.list`); each task
+  runs **all 6,336 queries** (`s5_inv/manifest.txt`) against one chunk, parsing it
+  once. Output → **`work/prosmos_2026/s5_inv/`** (`hits/<query>/`, `parts/`).
+- **Progress (at handoff):** ~46 concurrent, hits accumulating fast (62k+ hit
+  files early). Watch: `squeue -j 622485`.
+- **Why:** corrects the searchmatrix **undercount** (below) AND the NFS-read
+  amplification (DB parsed once per chunk, not 6,336× per query).
+- My per-query sweep's partial output (147 parts, salvageable) is at
+  `s5_full_afdb_hardened_perquery_aborted_1915/`. My completion handler
+  (`/tmp/sweep_done.sh`) pointed at the OLD dir and is now moot.
+
+### On completion of 622485 — DO THIS
+1. **Corrected headline:** distinct hitting structures =
+   `find s5_inv/hits -name '*.txt' -printf '%f\n' | sed 's/.txt//' | sort -u | wc -l`.
+   Dark fraction = 1 − that/4,921,931. Compare to original 15,327 (0.31%);
+   expected ~12–25% (uniform-5000 probe: 24.6% all-typings).
+2. **Verify inversion == per-query:** spot-check a few queries' hit sets in
+   `s5_inv/hits/<q>/` vs a direct hardened-engine run (the acceptance gate from
+   `loop_inversion_spec.md` — confirm the inverted binary is hit-identical).
+3. **Retry** any failed chunk tasks (`s5_inv/parts` rc!=0) with more time.
+4. **Negative space:** recheck the 800/800 zero-hit result (memory
+   `project_negspace_finding`) on this corrected sweep — it was run on the buggy
+   engine.
+5. Clean up aborted dirs `s5_full_afdb_hardened_perquery_aborted_1915/`,
+   `s5_full_afdb_hardened_nfsbound_aborted/` when done.
 
 ## What was done this session (commits, newest first)
 
