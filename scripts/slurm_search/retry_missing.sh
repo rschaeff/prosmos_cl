@@ -52,7 +52,13 @@ JID=$(sbatch --parsable --time="$TIMELIMIT" \
     "$HERE/array_inverted.sbatch")
 echo "retry array: $JID ($NM tasks, --time=$TIMELIMIT)" >&2
 
-MID=$(sbatch --parsable --job-name=prosmos-retry-merge --time=08:00:00 --mem=8G \
+# Summary only. Deliberately NOT `find $OUT/hits -name '*.txt'` -- the tree holds
+# tens of millions of files and walking it over NFS costs hours. submit_archive.sh
+# emits distinct_hitters.txt (and the query->record mapping the find threw away)
+# from the single pass it has to make anyway.
+MID=$(sbatch --parsable --job-name=prosmos-retry-merge --time=00:20:00 --mem=1G \
     --dependency=afterany:"$JID" --chdir="$OUT/logs" \
-    --wrap="{ printf 'chunk\truntime_sec\texit_code\trecords\n'; cat $OUT/parts/*.tsv 2>/dev/null | sort -u; } > $OUT/summary.tsv; find $OUT/hits -name '*.txt' -printf '%f\n' | sed 's/\.txt\$//' | sort -u > $OUT/distinct_hitters.txt; echo done")
+    --wrap="{ printf 'chunk\truntime_sec\texit_code\trecords\n'; cat $OUT/parts/*.tsv 2>/dev/null | sort -u; } > $OUT/summary.tsv; echo done")
 echo "retry merge: $MID" >&2
+echo "when this and the sweep are done, archive the hits tree:" >&2
+echo "  OUT=$OUT $HERE/submit_archive.sh" >&2

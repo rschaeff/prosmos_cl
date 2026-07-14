@@ -66,8 +66,12 @@ while [ "$offset" -lt "$N" ]; do
     PREV="$JID"; offset=$((offset + this))
 done
 DEPS=$(IFS=:; echo "${ARRAY_IDS[*]}")
+# Summary only. Deliberately NOT `find $OUT/hits -name '*.txt'` -- the tree holds
+# tens of millions of files and walking it over NFS costs hours, and `sort -u` on
+# the basenames discards which QUERY hit which record. submit_archive.sh folds the
+# tree into one zstd table and emits distinct_hitters.txt from that single pass.
 MID=$(sbatch --parsable --job-name=prosmos-inv-merge --time=00:20:00 --mem=1G \
     --dependency=afterany:${DEPS} --chdir="$OUT/logs" \
-    --wrap="{ printf 'chunk\truntime_sec\texit_code\trecords\n'; cat $OUT/parts/*.tsv 2>/dev/null | sort; } > $OUT/summary.tsv; find $OUT/hits -name '*.txt' -printf '%f\n' | sed 's/\.txt\$//' | sort -u > $OUT/distinct_hitters.txt; echo done")
+    --wrap="{ printf 'chunk\truntime_sec\texit_code\trecords\n'; cat $OUT/parts/*.tsv 2>/dev/null | sort; } > $OUT/summary.tsv; echo done")
 echo "merge job: $MID" >&2
 echo "watch: squeue -j ${ARRAY_IDS[*]}" >&2
