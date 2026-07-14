@@ -48,7 +48,9 @@ ELAPSED=$((END - START))
 # Hits produced by THIS chunk (files whose mtime is >= START would be exact, but
 # a simple count of this chunk's records + rc is the health signal).
 NREC=$(grep -c '\.ssd' "$CHUNK" 2>/dev/null)
-printf '%s\t%d\t%d\t%d\n' "$NAME" "$ELAPSED" "$RC" "$NREC" > "$OUT/parts/${LINE}.tsv"
+# retry_missing.sh sets PARTS_PREFIX so a retry array's line numbers (1..n_missing)
+# cannot overwrite the original run's parts, which are keyed by global chunk line.
+printf '%s\t%d\t%d\t%d\n' "$NAME" "$ELAPSED" "$RC" "$NREC" > "$OUT/parts/${PARTS_PREFIX:+${PARTS_PREFIX}_}${LINE}.tsv"
 tail -50 "$LOCAL/stdout.log" > "$OUT/logs/${NAME}.tail" 2>/dev/null || true
 rm -rf "$LOCAL"
 echo "[$(date +%H:%M:%S)] chunk ${NAME}: ${ELAPSED}s rc=${RC} recs=${NREC}" >&2
