@@ -38,12 +38,41 @@ mkdir -p "$LOCAL/run" "$LOCAL/sheetbug"
 mkdir -p "$OUT/parts" "$OUT/logs"
 cd "$LOCAL/run"
 
+# HITS_MODE=local: searchmatrix writes its one-file-per-hit output to the node's
+# own disk, and we fold it into a single compressed TSV on NFS before exiting.
+# The tree-mode alternative has every task writing ~30k tiny files straight into
+# 6336 NFS directories shared with every other task -- the full AFDB sweep left
+# ~24M inodes behind that way, and the write storm is in searchmatrix's hot loop.
+# One TSV per chunk means ~800 files per sweep instead of tens of millions.
+# Default is tree, so runs already in flight (and their retries) keep the layout
+# they started with; submit_inverted.sh opts new runs into local.
+: "${HITS_MODE:=tree}"
+if [ "$HITS_MODE" = "local" ]; then
+    HR="$LOCAL/hits"
+    # searchmatrix does not create the per-query dirs, it only writes into them.
+    mkdir -p "$HR"
+    while read -r q; do mkdir -p "$HR/$(basename "$q" .query)"; done < "$MANIFEST"
+    HR="$HR/"
+else
+    HR="$HITS_ROOT"
+fi
+
 # Chunks are small (~a few MB); reading from NFS is fine, no staging needed.
 START=$(date +%s)
-"$SEARCH" "$MANIFEST" "$CHUNK" "$HITS_ROOT" > "$LOCAL/stdout.log" 2>&1
+"$SEARCH" "$MANIFEST" "$CHUNK" "$HR" > "$LOCAL/stdout.log" 2>&1
 RC=$?
 END=$(date +%s)
 ELAPSED=$((END - START))
+
+# Fold this chunk's node-local hits into one zstd TSV on NFS. Records live in
+# exactly one chunk, so the per-chunk TSVs concatenate with no dedup needed.
+if [ "$HITS_MODE" = "local" ] && [ "$RC" = "0" ]; then
+    mkdir -p "$OUT/hitparts"
+    "${PYTHON:-/sw/apps/Anaconda3-2023.09-0/bin/python}" \
+        "${ARCHIVE_PY:-/home/rschaeff/dev/prosmos_cl/scripts/slurm_search/archive_hits.py}" \
+        chunk "$LOCAL/hits" "$OUT/hitparts/${NAME}.tsv.zst" >> "$LOCAL/stdout.log" 2>&1
+    RC=$?
+fi
 
 # Hits produced by THIS chunk (files whose mtime is >= START would be exact, but
 # a simple count of this chunk's records + rc is the health signal).

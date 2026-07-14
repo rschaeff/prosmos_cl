@@ -153,11 +153,110 @@ def finalize(hits_root, out_dir, n_shards):
     print(f"SAFE TO DELETE {hits_root} -- {tot_f:,} files fold into 1")
 
 
+def chunk(hits_root, out_tsv):
+    """Fold ONE chunk's node-local hits into a single zstd TSV (HITS_MODE=local).
+
+    Called from array_inverted.sbatch on the compute node, so the tiny per-hit
+    files never touch NFS at all. Writes to a .partial and renames, so a task
+    killed mid-write cannot leave a truncated TSV that later looks complete.
+    """
+    tmp = out_tsv + ".partial"
+    proc = subprocess.Popen(
+        ["zstd", "-3", "-q", "-o", tmp, "-f", "-"],
+        stdin=subprocess.PIPE, text=True,
+    )
+    n_files = n_rows = 0
+    for q in sorted(os.listdir(hits_root)):
+        qpath = os.path.join(hits_root, q)
+        if not os.path.isdir(qpath):
+            continue
+        for fn in os.listdir(qpath):
+            if not fn.endswith(".txt"):
+                continue
+            rec = fn[:-4]
+            if rec.startswith("pdb"):
+                rec = rec[3:]
+            n_files += 1
+            for i, seg in enumerate(parse_hit_file(os.path.join(qpath, fn))):
+                proc.stdin.write(f"{q}\t{rec}\t{i}\t{seg}\n")
+                n_rows += 1
+    proc.stdin.close()
+    rc = proc.wait()
+    if rc != 0:
+        sys.stderr.write(f"zstd failed rc={rc}\n")
+        return rc
+    os.rename(tmp, out_tsv)
+    print(f"chunk: {n_files} hit files -> {n_rows} rows -> {out_tsv}")
+    return 0
+
+
+def merge_chunks(out_dir):
+    """Concatenate the per-chunk TSVs of a HITS_MODE=local run into one archive."""
+    hp = os.path.join(out_dir, "hitparts")
+    parts = sorted(glob.glob(os.path.join(hp, "*.tsv.zst")))
+    if not parts:
+        sys.exit(f"FAIL: no chunk TSVs in {hp}")
+    stray = glob.glob(os.path.join(hp, "*.partial"))
+    if stray:
+        sys.exit(f"FAIL: {len(stray)} partial TSVs -- a chunk died mid-write: {stray[:3]}")
+
+    # every chunk in the run must have produced a TSV, or the archive is short
+    clist = os.path.join(out_dir, "chunks.list")
+    if os.path.exists(clist):
+        want = {os.path.basename(l.strip()) for l in open(clist) if l.strip()}
+        have = {os.path.basename(p)[: -len(".tsv.zst")] for p in parts}
+        missing = want - have
+        if missing:
+            sys.exit(f"FAIL: {len(missing)} chunks have no TSV (e.g. {sorted(missing)[:3]})")
+
+    arc = os.path.join(out_dir, "archive")
+    os.makedirs(arc, exist_ok=True)
+    archive = os.path.join(arc, "hits.tsv.zst")
+    with open(archive, "wb") as out:
+        for p in parts:
+            with open(p, "rb") as fh:
+                out.write(fh.read())          # zstd frames concatenate cleanly
+
+    counts, recs, n_rows = {}, set(), 0
+    p = subprocess.Popen(["zstd", "-dc", archive], stdout=subprocess.PIPE, text=True)
+    seen = set()
+    for line in p.stdout:
+        f = line.rstrip("\n").split("\t")
+        if len(f) != 4:
+            continue
+        n_rows += 1
+        recs.add(f[1])
+        # a (query, record) pair can carry many motif rows; count records, not rows
+        if (f[0], f[1]) not in seen:
+            seen.add((f[0], f[1]))
+            counts[f[0]] = counts.get(f[0], 0) + 1
+    p.wait()
+
+    with open(os.path.join(arc, "query_counts.tsv"), "w") as fh:
+        fh.write("query\thit_records\n")
+        for q in sorted(counts):
+            fh.write(f"{q}\t{counts[q]}\n")
+    with open(os.path.join(arc, "distinct_hitters.txt"), "w") as fh:
+        for r in sorted(recs):
+            fh.write(r + "\n")
+
+    print("VERIFIED")
+    print(f"  chunk TSVs      : {len(parts)}")
+    print(f"  motif rows      : {n_rows:,}")
+    print(f"  distinct records: {len(recs):,}")
+    print(f"  queries w/ hits : {len(counts)}")
+    print(f"  archive         : {archive} ({os.path.getsize(archive)/1e9:.2f} GB)")
+
+
 if __name__ == "__main__":
     mode = sys.argv[1]
     if mode == "worker":
         sys.exit(worker(sys.argv[2], sys.argv[3], int(sys.argv[4]), int(sys.argv[5])))
     elif mode == "finalize":
         finalize(sys.argv[2], sys.argv[3], int(sys.argv[4]))
+    elif mode == "chunk":
+        sys.exit(chunk(sys.argv[2], sys.argv[3]))
+    elif mode == "merge_chunks":
+        merge_chunks(sys.argv[2])
     else:
         sys.exit(__doc__)
