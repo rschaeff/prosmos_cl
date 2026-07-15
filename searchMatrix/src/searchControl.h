@@ -41,7 +41,7 @@ class searchControl
           int countpid;
   public  :
        searchControl();
-       void searchM(vector<elecol> a , char ** intM, int row1,vector<elecol>b,char** quM,int row2,vector<fpass>& totalpass
+       void searchM(vector<elecol> &a , char ** intM, int row1,vector<elecol> &b,char** quM,int row2,vector<fpass>& totalpass
                     ,vector<matrixElment> &totalele);
        bool compareCol(vector<int> allRow,char **intM,int row1,char **quM,int row2,int nocol);
        void processMatrfile(char *filename,char **matrix);
@@ -1708,7 +1708,7 @@ int searchControl::quNumOfele(char *line , vector<elecol> &quelecol)
 // (2) is the sheet requirements for example: sheet same 1 2 3 4,means the elements 1 2 3 4 in qury 
 //matrix should be in the same sheet.
 //sheet different 1 4,means in qury matirx the element 1 and 4 are in the different sheet
-void searchControl::searchM(vector<elecol>a,char ** intM, int row1,vector<elecol>b,char** quM,int row2,
+void searchControl::searchM(vector<elecol> &a,char ** intM, int row1,vector<elecol> &b,char** quM,int row2,
                            vector<fpass> &totalpass,vector<matrixElment> &totalele)
 {
     int i,j;
@@ -1743,6 +1743,10 @@ void searchControl::searchM(vector<elecol>a,char ** intM, int row1,vector<elecol
   totalele[47].print();
 */
   {
+    // Reusable scratch for the matched partial's column indices; cleared and
+    // refilled once per popped partial, then held constant across the candidate
+    // scan (all candidates extend the SAME parent, so its columns don't change).
+    vector<int> parentCols;
     for(i=0;i<a.size();i++)
     {
         k = 0;
@@ -1757,52 +1761,53 @@ void searchControl::searchM(vector<elecol>a,char ** intM, int row1,vector<elecol
            delete passptr;
            while(!onepass.empty())
            {
-              beginCol = onepass.front().getcurrentNode().getcol();
+              fpass &front = onepass.front();   // std::deque: this ref stays valid across push_back below
+              beginCol = front.getcurrentNode().getcol();
               debug++;
-              k = onepass.front().getparent().size();
+              k = front.getparent().size();
+              // Precompute the parent columns ONCE (constant across the j scan).
+              parentCols.clear();
+              {
+                 vector<elecol> &par = front.getparent();
+                 for(int y=0;y<(int)par.size();y++) parentCols.push_back(par[y].getcol());
+              }
+              // Never extend a partial that is already a complete match: b[k]
+              // with k==row2 would read one past the query type list. The old
+              // code relied on that OOB read failing to match; the junk >row2
+              // partials it occasionally spawned never reached totalpass (only
+              // size==row2 does), so guarding here changes no results, only work.
+              if(k < row2)
+              {
               for(j=beginCol+1;j<a.size();j++)
               {
                  if(a[j].geteleTyp() == b[k].geteleTyp()||b[k].geteleTyp()=='X')
                  {
-                     currentnode = a[j];
-                     //cout<<"the seconde chain name is "<<currentnode.getchain()<<endl;
-                     if(chainjudge == true && chainName == currentnode.getchain())
+                     elecol &cand = a[j];
+                     // chain gate: chainjudge on -> require same chain as the seed;
+                     // chainjudge off -> accept any. (Was two identical blocks.)
+                     if(chainjudge == true && chainName != cand.getchain())
+                        continue;
+                     // TEST BEFORE BUILD: verify the interaction constraint against
+                     // every already-matched element directly on intM/quM, before
+                     // allocating and copying an fpass. This is compareCol inlined:
+                     // it checked intM[parentCols[t]][newcol] vs quM[t][k] for t<k.
+                     int newcol = cand.getcol();
+                     bool ok = true;
+                     for(int t=0;t<k;t++)
                      {
-                         passptr = new fpass(currentnode);
-                         passptr->inheritPass(onepass.front());
-                         passptr-> addNodeToparent(currentnode);
-                         int y=0;
-                         allRow.clear();
-                         for(y=0;y<passptr->getparent().size();y++)
-                         {
-                            allRow.push_back(passptr->getparent()[y].getcol());
-                            pushnumber++;
-                         }
-                         if(compareCol(allRow ,intM,row1,quM,row2,k) == true)
-                         {
-                            onepass.push(*passptr);
-                         }
-                         delete passptr;
+                        if(notequal(intM[parentCols[t]][newcol], quM[t][k]))
+                        { ok = false; break; }
                      }
-                     if(chainjudge != true)
+                     if(ok)
                      {
-                         passptr = new fpass(currentnode);
-                         passptr->inheritPass(onepass.front());
-                         passptr-> addNodeToparent(currentnode);
-                         int y=0;
-                         allRow.clear();
-                         for(y=0;y<passptr->getparent().size();y++)
-                         {
-                            allRow.push_back(passptr->getparent()[y].getcol());
-                            pushnumber++;
-                         }
-                         if(compareCol(allRow ,intM,row1,quM,row2,k) == true)
-                         {
-                            onepass.push(*passptr);
-                         }
-                         delete passptr;
+                        // Only now pay for the allocation + parent copy.
+                        fpass nf(cand);
+                        nf.inheritPass(front);
+                        nf.addNodeToparent(cand);
+                        onepass.push(nf);
                      }
                  }
+              }
               }
               temp = onepass.front();
               if(temp.getparent().size()==row2)
