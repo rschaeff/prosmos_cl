@@ -32,6 +32,24 @@ if [ -z "$CHUNK" ] || [ ! -f "$CHUNK" ]; then
 fi
 NAME=$(basename "$CHUNK")
 
+# Validate the manifest BEFORE searching. searchmatrix treats an unreadable query
+# path as "no query" and exits 0, so a malformed manifest yields a full sweep that
+# reports zero hits and looks like a scientific result. (This happened: a manifest
+# built with `ls` -- aliased to long format -- put "-rw-r--r-- 1 rschaeff lab ..."
+# on every line, so all 11 templates silently vanished and 800 chunks searched an
+# empty query set.) Fail loudly on a bad path instead.
+NQ=0
+while read -r q; do
+    [ -n "$q" ] || continue
+    if [ ! -f "$q" ]; then
+        echo "manifest $MANIFEST: not a file: '$q' (built with \`ls\`? use find)" >&2; exit 3
+    fi
+    NQ=$((NQ + 1))
+done < "$MANIFEST"
+if [ "$NQ" = "0" ]; then
+    echo "manifest $MANIFEST has no queries" >&2; exit 3
+fi
+
 # Node-local scratch: searchmatrix writes <cwd>/../sheetbug and a DB-named log.
 LOCAL="/tmp/smi_${LINE}_$$"
 mkdir -p "$LOCAL/run" "$LOCAL/sheetbug"
