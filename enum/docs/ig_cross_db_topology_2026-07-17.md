@@ -91,20 +91,58 @@ flat grid asked to describe 3D packing.
 3. **Circularity.** The existing 17 templates were fitted to a 2,500-core sample of
    *AFDB grid-dark* Ig, so their 85.3% AFDB coverage is partly definitional.
 
-## Trap: the chain-A regex
+## Trap: the SSE regex — TWO bugs, both silent (SWEPT 2026-07-17)
 
-`merged_tmpl.py` (and my first cut of this analysis) uses `([HE])A\s+…`, hard-coding
-chain **A**. AFDB metamatrix records are chain-A only, so it is harmless there —
-but PDB records carry chains A/B/C/D/X/1/H, and the regex silently drops every
-non-A SSE. My first run reported 75.8% of PDB Ig with `n_pass = 0` and a bogus 35×
-core-yield gap (true gap ≈7×). Correct form, validated in `export_palsse.py`:
+The old form `([HE])A\s+(\d+)\s+--\s*(\d+)\s+(\d+)` was wrong twice over. The
+metamatrix is **fixed-width**, so fields collide when a value fills its column:
+
+1. **Chain hard-coded to `A`.** AFDB records are chain-A only, so it worked here by
+   luck. PDB records carry chains A/B/C/D/X/1/H — the regex drops every non-A SSE.
+2. **`\s+` between fields.** A 4-digit residue leaves no space after the chain
+   (`HA1011 --1016`), so every SSE at residue ≥1000 is dropped. This one bites AFDB
+   too. The same collision hits the *coordinate* fields (`14.176-119.171`,
+   `-13.089-119.354-105.284`), which broke the `ig_angles*` geometry scripts.
+
+Neither raises. They return a short SSE list, and since `adjacency(mat, len(sses))`
+decodes the packed matrix by SSE count, a short list misaligns **every edge** — the
+output is wrong topology, not missing rows.
+
+Correct forms (chain = any alnum, `\s*` everywhere, coordinate anchors the match):
 
 ```python
-SSEC = re.compile(r'([HE])([A-Za-z0-9])\s*(-?\d+[A-Za-z]?)\s*--\s*(-?\d+[A-Za-z]?)\s+(\d+)\s+-?\d+\.\d')
+# no coords needed
+SSE = re.compile(r'([HE])([A-Za-z0-9])\s*(-?\d+[A-Za-z]?)\s*--\s*(-?\d+[A-Za-z]?)\s+(\d+)\s+-?\d+\.\d')
+# with the 6 endpoint coords
+SSE = re.compile(r'([HE])([A-Za-z0-9])\s*(-?\d+[A-Za-z]?)\s*--\s*(-?\d+[A-Za-z]?)\s+(\d+)' + r"\s*(-?\d+\.\d+)"*6)
 ```
 
-**`merged_tmpl.py` still carries this bug.** Fix before pointing it at any
-multi-chain DB.
+Groups gain **chain at index 1**: length is `t[4]` (was `t[3]`), coords start at
+`t[5]` (slice `[5:]`, was `[4:]`). Swapping the regex without shifting the indices
+silently reads the *end residue* as the length.
+
+**Ground truth for validation:** every record declares its own SSE count in the
+field after `.ssd`, so `len(SSE.findall(rest)) == int(declared)` is a real check.
+
+| | OLD regex correct | fixed |
+|---|---|---|
+| AFDB (61,530 records) | 98.3% | **100.0%** |
+| PDB (6,205 records) | **55.2%** | **99.2%** |
+
+The PDB residual 0.8% is malformed records (`HAA   1--A   6    0`, chain-prefixed
+residues, length 0, coords ~494 Å) — excluded by the length filter before any
+adjacency decode, so harmless.
+
+**Swept through all 16 scripts in `s5_grid/`** (backups in `s5_grid/.bak_regex/`):
+`fold_full` `fold_dist` `fold_dist2` `sieve_afdb_corrected` `topo_ddark` `ig_topo`
+`dump_ddark_sample` `nick_case` `nick_nd3` `onemove` `template_count` `merged_tmpl`
+`ig_angles` `ig_angles2` `ig_missing` `cutoff_probe`. All compile; no old-form
+regex remains.
+
+**Impact on published numbers: small.** At full-DB scale the old regex mis-parsed
+**1.3%** of AFDB records and flipped the ≥5-passing-SSE call for **0.45%** — so the
+A/B/C/D sieve (43.7% A) and the fold enrichments move by well under half a point.
+The AFDB-only results stand. What was at risk was any *future* PDB use: the same
+scripts would have reported 45% of PDB records mis-parsed, silently.
 
 ## Loose ends
 
