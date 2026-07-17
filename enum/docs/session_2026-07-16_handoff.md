@@ -142,29 +142,51 @@ fundamental limit of the ProSMoS SSP paradigm, and the rescue is a deliberate
 
 ---
 
-## 7. AFDB vs PDB — the comparison that survives
+## 7. AFDB vs PDB — NOT YET INTERPRETABLE (was: "the comparison that survives")
+
+> ⚠ **REVISED 2026-07-16 (later).** The fold-level numbers here were built on a
+> corrupted AFDB array and a figure that drew empty cells as agreement. Full
+> post-mortem: `enum/docs/s5_grid_defects_2026-07-16.md`. Summary:
+> - **670 AFDB cells were silently zeroed** (53,397 folds = 23% of the AFDB
+>   total) by a sharding race in the grid assembly. PDB was unaffected, so the
+>   bias was **AFDB-only and downward**.
+> - **42% of cells are dead in both** datasets. They evaluate to
+>   `log2(NA/NP) = +0.0004` and rendered as neutral grey — *pixel-identical to
+>   perfect agreement*. Being the largest block, they **pinned the all-cell
+>   median at exactly 0.00**.
+> - **640 queries are physically unsatisfiable** (a sheet strand needing ≥3
+>   lateral neighbours) and must be masked, not counted as darkness.
 
 **Structure-level was 100% artifact.** Normalising to rate-per-domain fixes size
-but *not* redundancy:
+but *not* redundancy. That part stands.
 
-| | structure-level | **fold-level (distinct ECOD T-groups)** |
-|---|---|---|
-| median PDB/AFDB rate ratio | +3.86 log₂ = **14.5×** | **+0.00 log₂ = 1.00×** |
-| AFDB-only cells | 968 | 620 |
-| PDB-only cells | 65 | 698 |
+| | structure-level | fold-level (BUGGY — do not use) | **fold-level (CORRECTED)** |
+|---|---|---|---|
+| median PDB/AFDB rate ratio, all cells | +3.86 log₂ = **14.5×** | +0.00 = 1.00× ❌ | −0.585 log₂ |
+| median, data-bearing satisfiable cells | — | — | **−1.22 log₂ = 0.43×** |
+| AFDB-only cells | 968 | 620 ❌ | **720** |
+| PDB-only cells | 65 | 698 ❌ | **135** |
 
 Both sets are ~30× redundant for *different* reasons — PDB 34.2× (crystallography
 effort: antibodies, lysozyme, kinases), AFDB 30.8× (sequence-cluster reps; mean
 84 sequences each, **max 1,607,304**). Denominators are near-identical (**3,656 vs
-3,655 folds**), which is what makes the fold view fair.
+3,655 folds**), which is what makes the fold view fair. That rationale is intact;
+only the numbers were wrong.
 
-> **Experimental and predicted structure space contain S5 motifs at
-> indistinguishable fold-level rates.** The 14.5× "PDB is richer" was redundancy
-> + domain size. The 968-vs-65 asymmetry I said would survive **did not** (620 vs
-> 698, symmetric).
+> **RETRACTED:** *"Experimental and predicted structure space contain S5 motifs at
+> indistinguishable fold-level rates."* That 1.00× was the pseudo-count of 2,677
+> empty cells, not biology.
 
-Figure: `s5_grid/afdb_vs_pdb_fold_level.png`. Do **not** show the structure-level
-version (`afdb_vs_pdb_grid.png`).
+> **DO NOT simply substitute 0.43×.** The PDB sweep is **68% complete**, and
+> partial coverage depresses PDB counts in exactly that direction — it is
+> confounded with the effect. The honest statement today: **the fold-level
+> comparison is not interpretable until `624866` finishes.** This is an
+> independent reason to hold the prosmos_inspect re-export (§8).
+
+Figure: `s5_grid/afdb_vs_pdb_fold_level_final.png` (script `plot_nr_final.py`,
+array `grid_afdb_nT_rebuilt.npy`, mask `impossible_mask.npy`). Do **not** show
+`afdb_vs_pdb_fold_level.png` (buggy) or the structure-level `afdb_vs_pdb_grid.png`
+(redundancy artifact).
 
 ---
 
@@ -196,13 +218,16 @@ Re-export chain (starts upstream — `full_spec.json` is itself built from hits)
 build_full_spec.py → export_cells.py → export_contacts / export_palsse /
 export_compare / build_nr_view`.
 
-**Do AFDB now** (corrected hits complete at `s5_inv/hits`). **Wait on pdb_exp**
-until the sweep finishes — re-exporting at 68% would bake in partial counts that
-*look* authoritative.
+**HOLD BOTH — do them together once the PDB sweep (`624866`) finishes.**
+(Decision 2026-07-16.) Re-exporting AFDB alone leaves a window where AFDB is
+corrected and PDB is stale, silently breaking every cross-dataset comparison and
+`compare/` matrix in the app; and re-exporting `pdb_exp` at 68% would bake in
+partial counts that *look* authoritative. §7's defects are a second, independent
+reason: the fold-level comparison is not interpretable until PDB is complete.
 
 ---
 
-## 9. Three claims of mine the data killed
+## 9. Claims of mine the data killed
 
 Recorded because each nearly reached a slide:
 1. **"Handedness is the filter."** Stripping handedness rescues **2%** of dark
@@ -210,8 +235,25 @@ Recorded because each nearly reached a slide:
    counts mid-run; those 198 files were 16 records × ~12 queries.
 2. **"Contact ⟹ same sheet."** False — cross-sheet contacts are in both the
    oracle (15%) and our enumeration (6%). The real rule is the sparse cap.
-3. **"The 968-vs-65 AFDB-only asymmetry will survive."** It didn't — 620 vs 698
-   at fold level. Same confound, different hat.
+3. ~~**"The 968-vs-65 AFDB-only asymmetry will survive."** It didn't — 620 vs 698
+   at fold level.~~ **UN-RETRACTED 2026-07-16.** The asymmetry *does* survive:
+   **720 AFDB-only vs 135 PDB-only**. The "symmetric 620/698" was the sharding
+   bug — **563 of those 698 "PDB-only" cells were AFDB cells that had been
+   zeroed**. I retracted a correct claim on the strength of corrupted data.
+   (Still provisional: at 68% PDB, AFDB-only is overstated and PDB-only
+   understated, so the true asymmetry is smaller than 720/135.)
+4. **"1.00× — indistinguishable fold-level rates."** The median of a population
+   that was 42% empty cells, each evaluating to +0.0004. See §7.
+5. **"The enumeration forces `-` on non-adjacent same-sheet strands, making those
+   queries self-contradictory."** No — 84% of same-sheet non-adjacent pairs in
+   *real* records are coded `-` (4805/5700); the queries match reality.
+6. **"The generator only emits `t`, so parallel sheets can never match."** No —
+   sheet-internal codes are `t` 5,168 / `c` 3,444 / `-` 2,919.
+
+The pattern worth internalising: **4, 5 and 6 were all mechanisms I found
+convincing before testing.** The two that survived contact with data (§7's
+defects) were both found by *looking at a picture* and asking why it had
+structure.
 
 ---
 
@@ -219,12 +261,27 @@ Recorded because each nearly reached a slide:
 
 | job | state |
 |---|---|
-| PDB sweep `624866` | ~68%, 57.1% lit, 0 fails, ETA ~15h → then merge/archive/retry |
+| PDB sweep `624866` | 280/400 (70%), 57.1% lit, 0 fails, ETA ~15h → then merge/archive/retry |
 | 8 Å cutoff `626145` | quantifies how much of the 57% adjacency-mismatch is 11 Å vs 8 Å |
-| expanded Ig `626154`→`626411` | 11 two-sheet templates × full AFDB: recovery + off-target cost |
+| ~~expanded Ig `626154`→`626411`~~ | **VOID — resubmitted as `627042`** (see below) |
+| expanded Ig `627042` | 17 two-sheet templates × 800 chunks × full AFDB: recovery + off-target |
 
-Then: (a) re-export `afdb_assigned`, then `pdb_exp` once complete;
-(b) PDB negspace verdict; (c) rebuild the fold-level comparison at 100% PDB.
+**The first expanded-Ig run (`626154`) was void, not a result.** Its classifier
+reported *"0 records hit, 0% Ig recovery"* — which would have contradicted the
+offline 80% coverage. Cause: `manifest.txt` was built with `ls`, **aliased to long
+format**, so every line read `-rw-r--r-- 1 rschaeff lab 195 … tmpl_0.query`.
+`basename` died 11× (once per template), **zero queries loaded**, and 800 chunks
+searched an empty query set in 0s each — rc=0 throughout. searchmatrix exits 0 on
+an empty query set, so nothing downstream could tell it from a real negative.
+Fixed: manifest built with `find`; `array_inverted.sbatch` now validates every
+manifest line and exits 3 (commit `deb7be0`); smoke-tested one chunk (167 hits)
+before fanning out. Re-run uses **all 17** templates — `merged_tmpl.py` emits them
+in greedy coverage order, so `tmpl_0..10` is the 80% set and `11..16` extends the
+curve.
+
+Then: (a) **re-export `afdb_assigned` + `pdb_exp` together** once PDB completes
+(§8); (b) PDB negspace verdict; (c) rebuild the fold-level comparison at 100% PDB
+using `plot_nr_final.py` — it is **not interpretable before then** (§7).
 
 **Contact cutoff.** `generateMatrix/src/external.h:32` —
 `DISTANCE_DEFAULT 11.0 // 8 A this parament need to be adjusted` (contact =
