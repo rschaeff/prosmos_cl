@@ -12,3 +12,8 @@ example/ssp_enumerated/
 
 # Local copies of paywalled references; we don't redistribute them.
 doc/
+
+
+# SLURM job logs (job stdout/stderr land in cwd)
+*.out
+*.err
