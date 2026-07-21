@@ -39,12 +39,16 @@ set -euo pipefail
 # Hardcode the ECOD DB connection. Using `:=` defaults here would let a
 # user's shell-exported PGHOST (e.g. ~/.bashrc setting PGHOST=lotta) silently
 # point the manifest pull at the wrong server. Unconditional assignment.
+#
+# NO PGPASSWORD HERE. psql reads the password from ~/.pgpass (mode 0600), keyed
+# by host:port:database:user, so it never has to appear in a tracked file. Do not
+# reintroduce it: an exported PGPASSWORD takes PRECEDENCE over ~/.pgpass, so a
+# stale or placeholder value here silently breaks auth for everyone.
 PGHOST=dione
 PGPORT=45000
 PGUSER=ecod
 PGDATABASE=ecod_protein
-PGPASSWORD='***REMOVED***'
-export PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD
+export PGHOST PGPORT PGUSER PGDATABASE
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 
