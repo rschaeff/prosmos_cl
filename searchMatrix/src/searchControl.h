@@ -1294,8 +1294,37 @@ int searchControl::intMnumofele(vector<matrixElment> &b  , char *oneline,vector<
     temp.assign(cpline,32,4);
     numberElment = atoi(temp.c_str());
     int col = 0;
-    while(beginposition<size)
+    // Each SSE record is exactly 68 bytes: 1 type + 1 chain + 7 begin + 6 end
+    // + 5 length + 48 coords (two points x 3 fields x 8). numberElment is
+    // authoritative for how many there are.
+    //
+    // BUG THIS REPLACES: the loop used to be `while(beginposition<size)`, i.e.
+    // bounded by LINE LENGTH and never consulting numberElment. Coordinates with
+    // five integer digits (large assemblies, e.g. 46198.078) overflow their
+    // 8-char field, so the line runs LONGER than 36+68*numberElment. The loop
+    // then parsed the surplus as phantom SSEs built from misaligned garbage, and
+    // when the surplus ran past the end the unbounded assign() below threw an
+    // uncaught std::out_of_range that killed the entire chunk -- while SLURM
+    // still reported the task COMPLETED 0:0. Measured on the 1.4M experimental
+    // build: 75 records overflow (0.005%); 4 crashed a chunk apiece (~11,200
+    // domains silently lost), the rest injected phantom SSEs unnoticed.
+    //
+    // A width mismatch means the coordinate columns are misaligned from the
+    // first overflow onward, so every field after it is untrustworthy. Skip the
+    // record rather than parse known-bad geometry; caller treats <0 as a
+    // malformed block and re-syncs.
+    static const int ELEMENT_WIDTH = 68;
+    if (numberElment <= 0 || 36 + ELEMENT_WIDTH * numberElment != size)
     {
+       cerr << "intMnumofele: " << pid << " declares " << numberElment
+            << " elements but body is " << (size - 36) << " bytes (expected "
+            << ELEMENT_WIDTH * numberElment
+            << ") -- coordinate field overflow; skipping record" << endl;
+       return -1;
+    }
+    for(int elem = 0; elem < numberElment; elem++)
+      {
+        if(beginposition + ELEMENT_WIDTH > size) break;   // defensive; unreachable above
         mptr = new matrixElment();
         temp.assign(cpline,beginposition,1);
         beginposition = beginposition + 1;

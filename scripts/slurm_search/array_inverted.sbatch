@@ -101,3 +101,12 @@ printf '%s\t%d\t%d\t%d\n' "$NAME" "$ELAPSED" "$RC" "$NREC" > "$OUT/parts/${PARTS
 tail -50 "$LOCAL/stdout.log" > "$OUT/logs/${NAME}.tail" 2>/dev/null || true
 rm -rf "$LOCAL"
 echo "[$(date +%H:%M:%S)] chunk ${NAME}: ${ELAPSED}s rc=${RC} recs=${NREC}" >&2
+
+# Propagate the real exit code. WITHOUT THIS the task ends on the echo above and
+# SLURM records COMPLETED 0:0 even when searchmatrix died -- which is exactly how
+# four chunks that aborted with std::out_of_range (~11,200 experimental domains)
+# passed unnoticed through two full sweeps. The hitpart is correctly NOT written
+# when RC!=0, so a crashed chunk silently vanishes rather than corrupting data;
+# it just has to be VISIBLE. Failed indices are then re-runnable via
+# retry_missing.sh.
+exit "$RC"

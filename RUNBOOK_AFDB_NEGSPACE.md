@@ -76,7 +76,7 @@ tar xzf /path/to/palsse_cl.tar.gz
 
 ```bash
 cd prosmos_cl/searchMatrix/src
-g++ -DSILENT searchMatrix.cpp -o ../build/searchmatrix
+g++ -O2 -DSILENT searchMatrix.cpp -o ../build/searchmatrix
 # Warnings only (format-string + unused-result), no errors expected.
 
 cd ../../generateMatrix/src

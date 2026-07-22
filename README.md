@@ -70,7 +70,7 @@ Note: the conda `mpicxx` at `/sw/apps/Anaconda3-2023.09-0/bin/mpicxx` is broken 
 `searchMatrix` (no MPI):
 ```
 cd searchMatrix/src
-g++ -DSILENT searchMatrix.cpp -o ../build/searchmatrix
+g++ -O2 -DSILENT searchMatrix.cpp -o ../build/searchmatrix
 ```
 Builds clean against g++ 11 (warnings only — `%d` vs pointer/`size_t` format mismatches; cosmetic). The result is a 64-bit native binary at `searchMatrix/build/searchmatrix`.
 
