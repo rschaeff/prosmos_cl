@@ -17,6 +17,20 @@ set -euo pipefail
 [ -f "$DB" ]   || { echo "DB not found: $DB" >&2; exit 1; }
 HERE=$(cd "$(dirname "$0")" && pwd)
 
+# Refuse to dispatch against a stale binary. Commit 8a853a7 (2.9x hot-loop
+# optimisation) was compiled but never copied over build/searchmatrix, so sweeps
+# ran the older build for a week -- 38.4s vs 10.3s per chunk, entirely silently.
+# A whole sweep is hours to days of cluster time; failing here is free. Set
+# SKIP_STALE_CHECK=1 only when deliberately sweeping with a pinned older binary.
+SMDIR=$(cd "$HERE/../../searchMatrix" 2>/dev/null && pwd || true)
+if [ -z "${SKIP_STALE_CHECK:-}" ] && [ -n "$SMDIR" ] && [ -f "$SMDIR/Makefile" ]; then
+    make -C "$SMDIR" --no-print-directory stale >/dev/null || {
+        make -C "$SMDIR" --no-print-directory stale >&2
+        echo "refusing to submit against a stale searchmatrix" >&2
+        exit 1
+    }
+fi
+
 mkdir -p "$OUT/logs" "$OUT/parts" "$OUT/chunks"
 echo "$HITS_MODE" > "$OUT/.hits_mode"   # retry_missing.sh must match the run's layout
 
