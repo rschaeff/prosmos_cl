@@ -3,16 +3,20 @@
 
 WHY THIS EXISTS (and why the lattice route does not work here). The obvious way
 to reach S6 near a Ruczinski panel is via its S5 cell. That route is a dead end,
-twice over:
-  * The S5 grid (`queries_adjonly`) uses only `x * X -`. It is ADJACENCY-ONLY and
-    therefore blind to parallel/antiparallel -- the up/down pattern that DEFINES
-    a Ruczinski panel. Many panels collapse onto one S5 cell.
-  * Empirically the S5 hex-lattice grid cannot hold a Ruczinski 4-strand sheet at
-    all. Across all 19 domains realizing panels 3 and 10, the best overlap
-    between the panel's four strands and any S5 instance is 3 of 4 -- never 4.
-    (The same 3-of-4 pattern explains sk171 ty07 = HHEEE for panel 23: three
-    strands plus two helices, not a parent.) This is the grid's known blind spot
-    for beta/alpha-beta folds.
+but NOT for the reasons first claimed. Re-derived against the canonical TYPED
+graph198 grid (`ruczinski/panel_parent_geom.py`, 2026-07-24):
+  * NOT orientation-blindness. graph198 carries c/t (parallel/antiparallel), so
+    the earlier "the grid can't see up/down" argument was an artifact of the
+    orientation-blind `adjonly` grid -- it does not apply to the canonical grid.
+  * NOT "the grid can't hold the sheet." It can: panels 3 and 10 each embed in
+    10 typed S5 cells (all EEEEE) -- verified by exhaustive code-matrix match.
+  * The real reason is SHEET CARDINALITY. Those 10 embeddings are all LOOSE: the
+    panel's four strands appear only as a SUB-sheet of a 5-strand (EEEEE) sheet,
+    never as a complete 4-strand sheet with the 5th SSE outside it. STRICT S5
+    parents (panel = a complete S5 sheet) number 0. Since ProSMoS sheet-
+    completeness only matches a panel as a COMPLETE sheet, no S5 cell is a parent.
+    (Panel 23 is the adjacent case: its best embedding is sk171 ty07 = HHEEE, only
+    3 of its 4 strands as a complete sheet + 2 helices -- also not a parent.)
 
 So extensions are grown in the RUCZINSKI ENCODING instead: the seed's own `c`/`t`
 codes are carried through untouched, and one SSE is added. Output is again a
