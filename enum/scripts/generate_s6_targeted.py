@@ -20,14 +20,16 @@ SEED NAMING mirrors the S5 grid (`s5-<skel>-<typing>`), where skel indexes
 (H=0, E=1, MSB = SSE 1). So `171:7` is sk171 ty07 = HHEEE -- the cell holding
 the Ruczinski topology-23 five-SSE motif, which has 0 experimental instances.
 
-MATRIX CONVENTION. The S5 grid being extended (`queries_adjonly`) is
-ADJACENCY-ONLY: every lattice-adjacent pair is `x` (interaction type
-unconstrained), non-adjacent same-sheet pairs stay `-`, everything else `X`, and
-handedness directives are dropped. Emitting the fully typed matrix instead
-(`v C T t c u`) would make the S6 query far stricter than the S5 cell it seeds
-from, so hit counts would not be comparable and the sibling comparison would be
-meaningless. `--matrix adjonly` (the default) reproduces the seed's own encoding
-exactly -- verified against s5-0171-0007.
+MATRIX CONVENTION. Default is `--matrix typed`: the fully typed graph198 encoding
+(`v C T t c u` + handedness), so the seed's 5x5 submatrix matches the CANONICAL
+graph198 S5 cell cell-for-cell (verified: the seed block of a typed s6t-0171-0007
+query equals s5-0171-0007.query exactly) and the S6 extension is comparable to the
+typed S5 baseline that actually identified sk171 ty07 as the AFDB-only survivor.
+The whole project's canonical grid is graph198; the orientation-blind `adjonly`
+grid is a DIFFERENT question (`queries_adjonly`, matches ~20x more) and its sweeps
+were quarantined as the wrong query set. `--matrix adjonly` remains available for a
+deliberately looser, seed-matched sibling comparison, but it is NOT the canonical
+baseline and must never be mixed with the typed grids.
 
 CONTAINMENT IS NOT AUTOMATIC. A one-node extension does not always preserve the
 parent's sheet topology: adding a strand can re-partition the sheets so the
@@ -183,8 +185,9 @@ def main():
     ap.add_argument("seeds", nargs="+", metavar="SKEL:TYPING",
                     help="S5 seed cells, e.g. 171:7 (sk171 ty07)")
     ap.add_argument("-o", "--out", type=Path, required=True)
-    ap.add_argument("--matrix", choices=("adjonly", "typed"), default="adjonly",
-                    help="adjonly (default) matches the S5 grid being extended")
+    ap.add_argument("--matrix", choices=("adjonly", "typed"), default="typed",
+                    help="typed (default) = canonical graph198 encoding; adjonly is "
+                         "the orientation-blind grid (NOT canonical, do not mix)")
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
     if not a.dry_run:
