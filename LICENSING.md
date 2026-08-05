@@ -1,47 +1,59 @@
-# Licensing — unresolved, needs sign-off before public release
+# Licensing — decided
 
-**Status: this repository has no LICENSE file, and one should not be added without a decision
-from the original authors.** This note records the situation so the decision can be made
-deliberately rather than by default.
+**Status as of 2026-08-05: decided and in force.** The selection is made by the Grishin
+Laboratory as the originating group; the reasoning and its limits are recorded in
+[`NOTICE.md`](./NOTICE.md) and should be read as part of this decision. This file is the summary
+and the residual action list.
 
-## Why it is not straightforward
+## Decision
 
-`searchMatrix/` and `generateMatrix/` are **derivative works**, not original code. They descend
-from the ProSMoS release by Shuoyong Shi (UT Southwestern, ~2010), whose own terms are stated
-in [`readme.original`](./readme.original) as *"free for academic use"* — a phrase that is not a
-license. It grants no explicit rights to redistribute, modify, or sublicense, says nothing
-about commercial use, and carries no warranty disclaimer. Journals and Zenodo both expect a
-named license, and "free for academic use" will not satisfy either.
+| Artifact | License | Status |
+|---|---|---|
+| This repository (`searchMatrix`, `generateMatrix`) | **PolyForm Noncommercial 1.0.0** | in force |
+| `palsse_cl` | **PolyForm Noncommercial 1.0.0** | in force |
+| Zenodo analysis deposition (10.5281/zenodo.21814885) | **CC BY 4.0** | in force |
 
-This tree adds substantial modifications (defect fixes, a build system, a hardened database
-reader, loop inversion) but those are modifications *of* that code, so the downstream license
-cannot be chosen unilaterally.
+The split is deliberate. The engines are derivative works and inherit a restriction. The
+deposition contains no upstream code — it is the *output* of running these tools, not a
+modification of them — so it inherits nothing and is released openly. Reasoning in `NOTICE.md`.
 
-## What needs to happen
+Rejected: a hand-written "academic use" license (do not freelance license text when a
+professionally drafted one exists); the **Academic Free License 3.0**, which despite its name is
+permissive and carries no academic restriction at all; and Prosperity 3.0.0, which has no SPDX
+identifier and so cannot be expressed to GitHub, Zenodo or package tooling.
 
-1. **Confirm the upstream position with Shuoyong Shi and Nick Grishin.** They are the parties
-   who can say what the original terms were intended to be and whether the lab is willing to
-   relicense.
-2. **Pick a named license** for the combined work. If the goal is maximum reuse and the
-   upstream authors agree, MIT or BSD-3-Clause are the obvious candidates and are what most
-   structural-bioinformatics tooling uses. If the intent is genuinely to restrict commercial
-   use — which "free for academic use" gestures at — then a custom academic license is needed,
-   and it should be written explicitly rather than implied; note that non-commercial terms are
-   not OSI-approved and some funders and repositories treat them as non-open.
-3. **Add `LICENSE` at the repository root**, and state the upstream provenance in it so the
-   derivation is not lost.
-4. **Mirror the choice in the Zenodo deposition**, which asks for a license at upload time.
+## Why no upstream sign-off was sought
 
-## Third-party code to check while you are at it
+Deliberately, not by oversight. The original ProSMoS author left the laboratory roughly fifteen
+years ago; the 2010 release is the final statement of terms in existence, and no clarification of
+intent is obtainable. The PALSSE terms are not merely unclear but absent — no copy survives. There
+is no historical reach here that would produce firmer ground than the laboratory's own position.
 
-- `scripts/map2scop/mapscop.pl` ships upstream with a placeholder credential line
-  (`my $password="yourpassword"`). Harmless, but it trips automated secret scanners on public
-  repositories; consider replacing it with a `~/.my.cnf` read or removing the script if it is
-  no longer used.
-- `readme.original` should be retained regardless of the outcome — it is the record of the
-  original terms.
+That position is stronger than a proxy's, for the reason set out in `NOTICE.md`: copyright in
+software written at UT Southwestern in the course of employment vests in the institution, not in
+the individual author, so the laboratory is acting inside the entity that holds the right rather
+than standing in for someone outside it.
 
-## Until this is resolved
+The selection is conservative by design. PolyForm Noncommercial permits the same users for the
+same purposes as "free for academic use only" and adds only the redistribution mechanics required
+to release the software at all. A permissive license would have granted rights the original
+expressly withheld. Acting without an obtainable permission carries little risk when the action
+does not expand anyone's rights — and that, rather than anyone's consent, is what makes this
+defensible.
 
-Do not present the repository as open source, and do not select a license on the Zenodo
-deposition that is inconsistent with whatever the upstream authors agree to.
+## Residual items
+
+1. **Confirm the copyright holder line.** `LICENSE.md` names UT Southwestern Medical Center on the
+   assumption above. If the lab has a different arrangement, correct the `Required Notice:` lines.
+   If certainty is ever wanted, this is a single question to UTSW's technology office — not an
+   archaeology problem.
+2. **Clean `scripts/map2scop/mapscop.pl`** — the placeholder credential line trips secret scanners
+   on public repositories.
+3. **Retain `readme.original` permanently** — it is the only surviving record of the original
+   terms, and the `Required Notice:` attribution depends on it.
+
+## Standing caution
+
+Do not describe this repository as open source. A noncommercial license is source-available by
+definition and can never be OSI-approved, because restricting commercial use fails clause 6 of the
+Open Source Definition. The Zenodo deposition is a different matter and *is* openly licensed.
