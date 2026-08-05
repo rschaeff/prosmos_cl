@@ -2,7 +2,52 @@
 
 **Pro**tein **S**econdary structure **Mo**tif **S**earch — search the PDB for proteins whose secondary-structure topology matches a user-defined motif. Originally released ~2010 by Shuoyong Shi (UT Southwestern); free for academic use.
 
-This tree is a working copy of the upstream source at `/home/rschaeff/src/Prosmos/ProSMoS/`. The original release notes are preserved as [`readme.original`](./readme.original).
+This tree is a hardened working copy of the upstream source; the original release notes are
+preserved as [`readme.original`](./readme.original).
+
+---
+
+## Citing this work
+
+This repository provides the **search engine** used by:
+
+> Schaeffer RD, Guo R, Cong Q, Grishin NV. *A topology census of four-strand β-sheets in
+> experimental and predicted protein structures.* [TODO: journal, year, DOI]
+
+The **analysis** for that paper — the enumeration, both censuses, every control and
+sensitivity analysis, the tables and the figure renderers — is deposited separately, with a
+per-file manifest and checksums:
+
+> [TODO: Zenodo DOI]
+
+Please cite both if you use the pipeline end to end. The original method is:
+
+> Shi S, Zhong Y, Majumdar I, Sri Krishna S, Grishin NV. Searching for three-dimensional
+> secondary structural patterns in proteins with ProSMoS. *Bioinformatics* 2007;23(11):1331–8.
+> Shi S, Chitturi B, Grishin NV. ProSMoS server. *Nucleic Acids Res* 2009;37:W526–31.
+
+### What is and is not part of the paper
+
+| | |
+|---|---|
+| `searchMatrix/`, `generateMatrix/` | the pipeline the census ran on — **in scope** |
+| `enum/docs/positive_controls.md` | recall controls quoted in the paper's SI — **in scope** |
+| `archive/` | exploratory work, explicitly **not** part of the census; see [`archive/README.md`](./archive/README.md) |
+| `enum/` (rest), `scripts/` | working code and session notes, not paper artifacts |
+
+The paper's scope is deliberately narrow: ProSMoS is used as an implementation of an
+already-defined 96-state description of the four-strand β-sheet. Neither the paper nor this
+repository claims ProSMoS is an adequate general representation of protein fold space.
+
+### Corrections in this tree
+
+Running the legacy code at whole-database scale required fixing defects that are load-bearing
+for the census. The most consequential is `1e5546c`: `intMnumofele()` bounded its
+element-reading loop by input line length rather than by the declared element count, so
+structures with five-digit coordinates overflowed an eight-character field, injected phantom
+SSEs, and could abort a chunk — while the batch wrapper swallowed the non-zero exit. Also
+here: a `Makefile` that refuses to sweep against a stale binary (`fbd3d0f`), buffer-overflow
+fixes in the query-path and output-path handling, and a hardened database reader.
 
 ## What it does
 

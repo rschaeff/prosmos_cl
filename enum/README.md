@@ -331,7 +331,7 @@ load-bearing once SSE-type assignment + ProSMoS query writing land.
 `combine.layers(skel)`, `combine.rcc_dedup(skels)`, and
 `enumerate.enumerate_skeletons_rcc(n)` implement the paper's Relative
 Compactness Criterion. The port was derived by decompiling CG-2012's
-binary; full reference at [docs/cg2012_internals.md](docs/cg2012_internals.md).
+binary; full reference at [../archive/s5_negspace/docs/cg2012_internals.md](../archive/s5_negspace/docs/cg2012_internals.md).
 
 Production `enumerate_skeletons` does *not* apply RCC. Empirical
 comparison:
