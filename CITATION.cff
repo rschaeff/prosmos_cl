@@ -17,6 +17,10 @@ authors:
 version: 1.0.0
 license: PolyForm-Noncommercial-1.0.0
 repository-code: "https://github.com/rschaeff/prosmos_cl"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22075370
+    description: "The concept DOI, which always resolves to the latest version."
 keywords:
   - structural biology
   - protein structure

@@ -5,6 +5,8 @@
 This tree is a hardened working copy of the upstream source; the original release notes are
 preserved as [`readme.original`](./readme.original).
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22075370.svg)](https://doi.org/10.5281/zenodo.22075370)
+
 ---
 
 ## Citing this work
@@ -13,6 +15,12 @@ This repository provides the **search engine** used by:
 
 > Schaeffer RD, Guo R, Cong Q, Grishin NV. *A topology census of four-strand β-sheets in
 > experimental and predicted protein structures.* [TODO: journal, year, DOI]
+
+The search engine itself is archived on Zenodo. Cite the **version** DOI in a paper's
+methods; the **concept** DOI below always resolves to the latest version:
+
+> Schaeffer RD. *ProSMoS — protein secondary-structure motif search engine.* Zenodo.
+> https://doi.org/10.5281/zenodo.22075370
 
 The **analysis** for that paper — the enumeration, both censuses, every control and
 sensitivity analysis, the tables and the figure renderers — is deposited separately, with a
