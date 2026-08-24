@@ -1,0 +1,29 @@
+{
+  "title": "ProSMoS — protein secondary-structure motif search engine",
+  "description": "<p><strong>ProSMoS</strong> (Protein Secondary structure Motif Search) searches the Protein Data Bank for proteins whose secondary-structure topology matches a user-supplied meta-matrix of interactions between secondary-structure elements — parallel or antiparallel pairing, handedness of connections, element lengths and hydrogen bonds — rather than by superposition of 3D coordinates.</p><p>This is a <strong>hardened, source-available</strong> working copy of the original ProSMoS release by Shuoyong Shi (UT Southwestern, ~2010), whose notes are preserved verbatim in <code>readme.original</code>. This tree adds defect fixes, a build system, a hardened meta-matrix database reader, and loop inversion in the search path; the copyright in the underlying work is unchanged and this repository claims only the modifications (see <code>NOTICE.md</code>). It is the search engine used by Schaeffer, Guo, Cong &amp; Grishin, <em>A topology census of four-strand β-sheets in experimental and predicted protein structures</em>; the analysis for that paper is deposited separately under CC BY 4.0 and contains none of this code.</p><p>Released under <strong>PolyForm Noncommercial 1.0.0</strong>. This is <strong>source-available, not open source</strong> — a license restricting commercial use fails clause 6 of the Open Source Definition.</p>",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "polyform-noncommercial-1.0.0",
+  "creators": [
+    {"name": "Schaeffer, R. Dustin", "orcid": "0000-0001-6502-1425"}
+  ],
+  "keywords": [
+    "structural biology",
+    "protein structure",
+    "secondary structure",
+    "motif search",
+    "protein topology",
+    "beta-sheet",
+    "ProSMoS",
+    "bioinformatics",
+    "Protein Data Bank"
+  ],
+  "related_identifiers": [
+    {"identifier": "10.1093/bioinformatics/btm121", "relation": "isDerivedFrom",
+     "scheme": "doi", "resource_type": "publication-article"},
+    {"identifier": "10.1093/nar/gkp316", "relation": "isDerivedFrom",
+     "scheme": "doi", "resource_type": "publication-article"},
+    {"identifier": "https://github.com/rschaeff/prosmos_cl", "relation": "isSupplementTo",
+     "scheme": "url"}
+  ]
+}

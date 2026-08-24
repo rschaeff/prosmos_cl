@@ -1,0 +1,66 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite both the software (this record) and the original ProSMoS method paper."
+title: "ProSMoS — protein secondary-structure motif search engine"
+abstract: >-
+  A hardened, source-available working copy of the ProSMoS engine (Shi et al., ~2010) that
+  searches the Protein Data Bank for proteins matching a user-supplied meta-matrix of
+  interactions between secondary-structure elements. This tree adds defect fixes, a build
+  system, a hardened meta-matrix database reader, and loop inversion in the search path; it
+  is the search engine used by the four-strand β-sheet topology census. Released under
+  PolyForm Noncommercial 1.0.0 (source-available, not open source). See NOTICE.md for
+  provenance.
+type: software
+authors:
+  - family-names: Schaeffer
+    given-names: R. Dustin
+    orcid: "https://orcid.org/0000-0001-6502-1425"
+version: 1.0.0
+license: PolyForm-Noncommercial-1.0.0
+repository-code: "https://github.com/rschaeff/prosmos_cl"
+keywords:
+  - structural biology
+  - protein structure
+  - secondary structure
+  - motif search
+  - protein topology
+  - ProSMoS
+  - bioinformatics
+references:
+  - type: article
+    scope: "The original ProSMoS method this software is derived from; see NOTICE.md."
+    title: "Searching for three-dimensional secondary structural patterns in proteins with ProSMoS"
+    authors:
+      - family-names: Shi
+        given-names: Shuoyong
+      - family-names: Zhong
+        given-names: Yi
+      - family-names: Majumdar
+        given-names: Indraneel
+      - family-names: Sri Krishna
+        given-names: S.
+      - family-names: Grishin
+        given-names: Nick V.
+    journal: "Bioinformatics"
+    year: 2007
+    volume: 23
+    issue: "11"
+    start: 1331
+    end: 1338
+    doi: 10.1093/bioinformatics/btm121
+  - type: article
+    scope: "The ProSMoS server and interaction-matrix representation."
+    title: "ProSMoS server: a pattern-based search using interaction matrix representation of protein structures"
+    authors:
+      - family-names: Shi
+        given-names: Shuoyong
+      - family-names: Chitturi
+        given-names: Bhadrachalam
+      - family-names: Grishin
+        given-names: Nick V.
+    journal: "Nucleic Acids Research"
+    year: 2009
+    volume: 37
+    issue: "Web Server"
+    start: "W526"
+    end: "W531"
+    doi: 10.1093/nar/gkp316

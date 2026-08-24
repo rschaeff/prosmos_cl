@@ -17,3 +17,6 @@ doc/
 # SLURM job logs (job stdout/stderr land in cwd)
 *.out
 *.err
+
+# Release runbook — operational notes, not part of the archived deposit
+RUNBOOK_RELEASE.md
