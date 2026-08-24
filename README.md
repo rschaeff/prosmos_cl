@@ -83,7 +83,6 @@ searchMatrix/           online: motif search against metamatricesDB
   build/searchmatrix    64-bit binary rebuilt from src (g++ 11)
 scripts/
   fetchmatrix/          perl helpers for inspecting individual matrices
-  map2scop/             map hits to SCOP 1.71 fold/superfamily (perl + MySQL)
   generateinsightIIlog/ build InsightII visualization log from hits
   generatemolscript/    build MolScript input from PDB hits
 example/
@@ -203,7 +202,6 @@ length 3 H 8 1000
 
 ## Post-processing (`scripts/`)
 
-- **`map2scop/mapscop.pl`** — joins hit PDB ids against a preformatted SCOP 1.71 MySQL DB to label hits by fold/superfamily. Requires MySQL credentials at the top of the script.
 - **`fetchmatrix/`** — perl helpers to extract and pretty-print a single PDB's matrix from a hit list, useful when designing queries.
 - **`generateinsightIIlog/`** — InsightII visualization log generator.
 - **`generatemolscript/`** — MolScript input generator for hit structures.

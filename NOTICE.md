@@ -84,9 +84,12 @@ position to make it.
 
 ## Third-party code
 
-`scripts/map2scop/mapscop.pl` ships upstream with a placeholder credential line
-(`my $password="yourpassword"`). Harmless, but it trips automated secret scanners; replace it
-with a `~/.my.cnf` read or drop the script before any public release.
+The upstream distribution shipped `scripts/map2scop/mapscop.pl` — a Perl/MySQL helper that
+labelled hits by SCOP 1.71 fold/superfamily against a preformatted MySQL database. It was
+**removed before the public release** (2026-08): it is not part of the search engine, nothing
+in this tree calls it, it depended on a SCOP 1.71 MySQL database that no longer exists, and it
+carried placeholder credential lines (`my $password="yourpassword"`) that trip secret scanners.
+Its provenance is preserved in `readme.original` (the verbatim 2010 release notes).
 
 ## Related deposition
 

@@ -47,8 +47,10 @@ defensible.
    assumption above. If the lab has a different arrangement, correct the `Required Notice:` lines.
    If certainty is ever wanted, this is a single question to UTSW's technology office — not an
    archaeology problem.
-2. **Clean `scripts/map2scop/mapscop.pl`** — the placeholder credential line trips secret scanners
-   on public repositories.
+2. **`scripts/map2scop/mapscop.pl` — removed (2026-08).** The upstream SCOP-labelling helper
+   carried placeholder credential lines and depended on a defunct SCOP 1.71 MySQL database; it was
+   dropped rather than cleaned (see `NOTICE.md` § Third-party code). Its provenance survives in
+   `readme.original`.
 3. **Retain `readme.original` permanently** — it is the only surviving record of the original
    terms, and the `Required Notice:` attribution depends on it.
 
