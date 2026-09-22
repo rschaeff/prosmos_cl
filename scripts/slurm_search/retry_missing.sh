@@ -49,11 +49,16 @@ echo "missing/failed chunks: $NM / $N" >&2
 # output lands in hits/ and half in hitparts/. Runs predating .hits_mode are tree.
 HITS_MODE=$(cat "$OUT/.hits_mode" 2>/dev/null || echo tree)
 echo "hits mode: $HITS_MODE" >&2
+# ...and the same searchmatrix binary. Runs predating .search used the ~/dev build.
+: "${SEARCH:=$(cat "$OUT/.search" 2>/dev/null || echo /home/rschaeff/dev/prosmos_cl/searchMatrix/build/searchmatrix)}"
+: "${PYTHON:=/sw/apps/Anaconda3-2023.09-0/bin/python}"
+[ -x "$SEARCH" ] || { echo "searchmatrix not executable: $SEARCH" >&2; exit 1; }
+echo "searchmatrix: $SEARCH" >&2
 
 JID=$(sbatch --parsable --time="$TIMELIMIT" \
     --array=1-${NM}%${CONCURRENCY} --chdir="$OUT/logs" \
     --job-name=prosmos-retry \
-    --export=CHUNK_LIST="$RETRY_LIST",MANIFEST="$MANIFEST",HITS_ROOT="$OUT/hits/",OUT="$OUT",OFFSET=0,PARTS_PREFIX=retry,HITS_MODE="$HITS_MODE",ARCHIVE_PY="$HERE/archive_hits.py" \
+    --export=CHUNK_LIST="$RETRY_LIST",MANIFEST="$MANIFEST",HITS_ROOT="$OUT/hits/",OUT="$OUT",OFFSET=0,PARTS_PREFIX=retry,HITS_MODE="$HITS_MODE",ARCHIVE_PY="$HERE/archive_hits.py",SEARCH="$SEARCH",PYTHON="$PYTHON" \
     "$HERE/array_inverted.sbatch")
 echo "retry array: $JID ($NM tasks, --time=$TIMELIMIT)" >&2
 
@@ -66,11 +71,10 @@ MID=$(sbatch --parsable --job-name=prosmos-retry-merge --time=00:20:00 --mem=1G 
     --wrap="{ printf 'chunk\truntime_sec\texit_code\trecords\n'; cat $OUT/parts/*.tsv 2>/dev/null | sort -u; } > $OUT/summary.tsv; echo done")
 echo "retry merge: $MID" >&2
 
-PY=/sw/apps/Anaconda3-2023.09-0/bin/python
 if [ "$HITS_MODE" = "local" ]; then
     AID=$(sbatch --parsable --job-name=prosmos-retry-archive --time=02:00:00 --mem=8G \
         --dependency=afterok:"$MID" --chdir="$OUT/logs" \
-        --wrap="$PY $HERE/archive_hits.py merge_chunks $OUT")
+        --wrap="$PYTHON $HERE/archive_hits.py merge_chunks $OUT")
     echo "archive job: $AID" >&2
 else
     echo "tree-mode run: once this finishes, fold the hits tree with" >&2

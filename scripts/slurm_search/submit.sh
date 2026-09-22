@@ -37,6 +37,10 @@ N=$(wc -l < "$QUERY_LIST")
 [ "$N" -gt 0 ] || { echo "no *.query files in $QDIR" >&2; exit 1; }
 
 HERE=$(cd "$(dirname "$0")" && pwd)
+# Passed to every task explicitly: --export=<list> drops anything not listed, so
+# without this the tasks run array.sbatch's hardcoded default binary.
+: "${SEARCH:=$(cd "$HERE/../../searchMatrix" && pwd)/build/searchmatrix}"
+[ -x "$SEARCH" ] || { echo "searchmatrix not executable: $SEARCH" >&2; exit 1; }
 
 # SLURM caps array size (MaxArraySize, typically 1001 on this cluster). If we
 # have more queries than that, split into chunks. Each chunk gets its own
@@ -72,7 +76,7 @@ while [ "$offset" -lt "$N" ]; do
         "${DEP_ARG[@]}" \
         --array=1-${this_chunk}%${CONCURRENCY} \
         --chdir="$OUT/logs" \
-        --export=QUERY_LIST="$QUERY_LIST",DB="$DB",OUT="$OUT",OFFSET="$offset" \
+        --export=QUERY_LIST="$QUERY_LIST",DB="$DB",OUT="$OUT",OFFSET="$offset",SEARCH="$SEARCH" \
         "$HERE/array.sbatch")
     ARRAY_IDS+=("$JOB_ID")
     echo "  array job id: $JOB_ID  (offset $offset, tasks 1..$this_chunk${PREV:+, afterany:$PREV})" >&2

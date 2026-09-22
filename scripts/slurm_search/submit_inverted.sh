@@ -5,7 +5,14 @@
 #
 # Usage:
 #   QDIR=path/to/queries DB=path/to/DB OUT=path/to/results \
-#   [NCHUNK=800] [CONCURRENCY=200] [TIMELIMIT=08:00:00] ./submit_inverted.sh
+#   [NCHUNK=800] [CONCURRENCY=200] [TIMELIMIT=08:00:00] \
+#   [SEARCH=path/to/searchmatrix] [PYTHON=path/to/python] ./submit_inverted.sh
+#
+# SEARCH defaults to THIS checkout's searchMatrix/build/searchmatrix, and it is
+# passed to every task explicitly. It used not to be: sbatch --export=<list>
+# propagates only the listed variables, so the tasks fell back to the
+# array_inverted.sbatch default (one user's ~/dev build) no matter whose checkout
+# submitted the sweep -- while the stale check below tested the caller's binary.
 set -euo pipefail
 : "${QDIR:?missing QDIR}"; : "${DB:?missing DB}"; : "${OUT:?missing OUT}"
 : "${NCHUNK:=800}"; : "${CONCURRENCY:=200}"; : "${TIMELIMIT:=08:00:00}"
@@ -16,14 +23,22 @@ set -euo pipefail
 [ -d "$QDIR" ] || { echo "QDIR not a dir: $QDIR" >&2; exit 1; }
 [ -f "$DB" ]   || { echo "DB not found: $DB" >&2; exit 1; }
 HERE=$(cd "$(dirname "$0")" && pwd)
+SMDIR=$(cd "$HERE/../../searchMatrix" 2>/dev/null && pwd || true)
+: "${SEARCH:=$SMDIR/build/searchmatrix}"
+: "${PYTHON:=/sw/apps/Anaconda3-2023.09-0/bin/python}"
+[ -x "$SEARCH" ] || { echo "searchmatrix not executable: $SEARCH (run make -C $SMDIR)" >&2; exit 1; }
+[ -x "$PYTHON" ] || { echo "PYTHON not executable: $PYTHON" >&2; exit 1; }
+SEARCH=$(readlink -f "$SEARCH")
 
 # Refuse to dispatch against a stale binary. Commit 8a853a7 (2.9x hot-loop
 # optimisation) was compiled but never copied over build/searchmatrix, so sweeps
 # ran the older build for a week -- 38.4s vs 10.3s per chunk, entirely silently.
 # A whole sweep is hours to days of cluster time; failing here is free. Set
 # SKIP_STALE_CHECK=1 only when deliberately sweeping with a pinned older binary.
-SMDIR=$(cd "$HERE/../../searchMatrix" 2>/dev/null && pwd || true)
-if [ -z "${SKIP_STALE_CHECK:-}" ] && [ -n "$SMDIR" ] && [ -f "$SMDIR/Makefile" ]; then
+# The check can only judge this checkout's build; a SEARCH pointing elsewhere is
+# the caller's responsibility (e.g. a deliberately pinned older binary).
+if [ -z "${SKIP_STALE_CHECK:-}" ] && [ -n "$SMDIR" ] && [ -f "$SMDIR/Makefile" ] \
+   && [ "$SEARCH" = "$(readlink -f "$SMDIR/build/searchmatrix")" ]; then
     make -C "$SMDIR" --no-print-directory stale >/dev/null || {
         make -C "$SMDIR" --no-print-directory stale >&2
         echo "refusing to submit against a stale searchmatrix" >&2
@@ -33,12 +48,13 @@ fi
 
 mkdir -p "$OUT/logs" "$OUT/parts" "$OUT/chunks"
 echo "$HITS_MODE" > "$OUT/.hits_mode"   # retry_missing.sh must match the run's layout
+echo "$SEARCH" > "$OUT/.search"         # ...and the run's binary
 
 # 1) query manifest (all queries, one absolute path per line)
 MANIFEST="$OUT/manifest.txt"
 find "$QDIR" -name '*.query' -type f | sort > "$MANIFEST"
 NQ=$(wc -l < "$MANIFEST"); [ "$NQ" -gt 0 ] || { echo "no queries in $QDIR" >&2; exit 1; }
-echo "queries: $NQ  hits mode: $HITS_MODE" >&2
+echo "queries: $NQ  hits mode: $HITS_MODE  searchmatrix: $SEARCH" >&2
 
 # 2) tree mode only: pre-create the per-query NFS dirs (searchmatrix writes into
 # them but does not create them). In local mode each task makes them on its own
@@ -86,7 +102,7 @@ while [ "$offset" -lt "$N" ]; do
     DEP=(); [ -n "$PREV" ] && DEP+=(--dependency=afterany:"$PREV")
     JID=$(sbatch --parsable --time="$TIMELIMIT" "${DEP[@]}" \
         --array=1-${this}%${CONCURRENCY} --chdir="$OUT/logs" \
-        --export=CHUNK_LIST="$CHUNK_LIST",MANIFEST="$MANIFEST",HITS_ROOT="$OUT/hits/",OUT="$OUT",OFFSET="$offset",HITS_MODE="$HITS_MODE",ARCHIVE_PY="$HERE/archive_hits.py" \
+        --export=CHUNK_LIST="$CHUNK_LIST",MANIFEST="$MANIFEST",HITS_ROOT="$OUT/hits/",OUT="$OUT",OFFSET="$offset",HITS_MODE="$HITS_MODE",ARCHIVE_PY="$HERE/archive_hits.py",SEARCH="$SEARCH",PYTHON="$PYTHON" \
         "$HERE/array_inverted.sbatch")
     ARRAY_IDS+=("$JID"); echo "  array $JID (offset $offset, $this tasks${PREV:+, after $PREV})" >&2
     PREV="$JID"; offset=$((offset + this))
@@ -104,10 +120,9 @@ MID=$(sbatch --parsable --job-name=prosmos-inv-merge --time=00:20:00 --mem=1G \
 # tree walk, no separate submit_archive.sh pass. merge_chunks refuses to build it
 # if any chunk is missing a TSV or left a .partial behind.
 if [ "$HITS_MODE" = "local" ]; then
-    PY=/sw/apps/Anaconda3-2023.09-0/bin/python
     AID=$(sbatch --parsable --job-name=prosmos-inv-archive --time=02:00:00 --mem=8G \
         --dependency=afterok:${MID} --chdir="$OUT/logs" \
-        --wrap="$PY $HERE/archive_hits.py merge_chunks $OUT")
+        --wrap="$PYTHON $HERE/archive_hits.py merge_chunks $OUT")
     echo "archive job: $AID" >&2
 fi
 echo "merge job: $MID" >&2
