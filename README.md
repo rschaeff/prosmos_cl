@@ -112,12 +112,13 @@ If you need any of those, pull them directly from `/home/rschaeff/src/Prosmos/Pr
 
 `generateMatrix` (MPI, needed only if you regenerate the DB):
 ```
-cd generateMatrix/src
-/usr/bin/mpicxx generMatrix.cpp -o ../build/generateMatrix
+mkdir -p generateMatrix/build      # not tracked; a fresh clone lacks it
+/usr/bin/mpicxx generateMatrix/src/generMatrix.cpp -o generateMatrix/build/generateMatrix
 ```
+Requires system OpenMPI (`/usr/bin/mpicxx`, the `libopenmpi-dev` package) and g++.
 Builds clean against system OpenMPI 4.1 / g++ 11 on this host (warnings only — uninitialized return paths and `%d` vs `size_t` mismatches; cosmetic). The result is a 64-bit native binary at `generateMatrix/build/generateMatrix`, kept separate from the 2010 `Linux/` binary.
 
-Note: the conda `mpicxx` at `/sw/apps/Anaconda3-2023.09-0/bin/mpicxx` is broken on this host (its `x86_64-conda-linux-gnu-c++` wrapper isn't on PATH) — use `/usr/bin/mpicxx` explicitly.
+Note: the conda `mpicxx` at `/sw/apps/Anaconda3-2023.09-0/bin/mpicxx` is broken on this host (its `x86_64-conda-linux-gnu-c++` wrapper isn't on PATH) — use `/usr/bin/mpicxx` explicitly. The binary links system OpenMPI, so never launch it with conda's `mpirun` either (see the invocation notes: you should not need `mpirun` at all).
 
 `searchMatrix` (no MPI):
 ```
@@ -154,18 +155,29 @@ searchmatrix <query.txt> <path/to/metamatricesDB> <output_dir>
 Writes one file per PDB hit into `output_dir`, each listing the matched SSEs (type, position, residue range, chain, length).
 
 ### generateMatrix
-Three invocation modes:
+Use the single-structure mode, once per PALSSE file, with no `mpirun`:
 ```
-# single PDB (PALSSE .ssd file)
-generateMatrix -os <pdbid.ssd> <palsse_dir/> <output_file>
-
-# directory of PALSSE files
-generateMatrix -ds <palsse_dir/> <output_file>
-
-# explicit file list
-generateMatrix -fs <listfile> <palsse_dir/> <output_file>
+for f in <palsse_dir>/*.ssd; do
+  b=$(basename "$f")
+  generateMatrix -os "$b" <palsse_dir>/ <out_dir>/"${b%.ssd}".out
+done
+cat <out_dir>/*.out > metamatricesDB
 ```
-Concatenate per-PDB outputs into the searchable DB: `cat *.out > metamatricesDB`.
+`-os` takes the `.ssd` **basename** and the directory (with trailing slash) as
+separate arguments. It runs as an OpenMPI singleton, so it needs no `mpirun`. This is
+what `scripts/*_db_build/process_chunk.sh` runs; parallelise with `xargs -P` or a
+SLURM array, not MPI.
+
+**Do not use the batch modes `-ds <palsse_dir/>` or `-fs <listfile>`.** They fail
+silently:
+- run directly, rank 0 is manager-only and waits forever for workers that do not exist
+  (hangs, no output);
+- under conda's `mpirun` (MPICH, first on PATH if conda is active) every rank believes
+  it is a singleton rank 0, so they all hang the same way;
+- under `/usr/bin/mpirun -np N` they exit 0 and write `<output_file>1..N-1`, but every
+  record has **zero elements**: the worker path never calls `prepareIndex()`, which
+  `-os` does before reading. Checked 2026-09-22 on 23 AFDB domains; `-os` on the same
+  files gives the full matrices.
 
 Generation depends on **PALSSE** SSE definitions as input — see the companion working copy at `~/dev/palsse_cl/` (or upstream: http://prodata.swmed.edu/palsse/).
 
