@@ -122,12 +122,11 @@ Note: the conda `mpicxx` at `/sw/apps/Anaconda3-2023.09-0/bin/mpicxx` is broken 
 
 `searchMatrix` (no MPI):
 ```
-cd searchMatrix/src
-g++ -O2 -DSILENT searchMatrix.cpp -o ../build/searchmatrix
+make -C searchMatrix          # g++ -O2 -DSILENT; `make stale` exits 1 if build/ is older than src/
 ```
 Builds clean against g++ 11 (warnings only — `%d` vs pointer/`size_t` format mismatches; cosmetic). The result is a 64-bit native binary at `searchMatrix/build/searchmatrix`.
 
-`-DSILENT` redirects stdout to `/dev/null` at startup. The original source has 200+ leftover debug `cout`/`printf` calls inside the per-DB-entry match loop; on the 710k-entry F70 DB that's ~85 MB of stdout per query (measured), which crippled v1/v2 sweeps via NFS I/O contention before we moved logs to compute-node local `/tmp`. The flag eliminates the write entirely without touching the call sites. Errors still surface via `cerr`. Drop the flag if you want the original verbose debug output for a one-off invocation. Note: do NOT enable `-O2` together with this build — it surfaces a pre-existing glibc FORTIFY check inside `searchControl.h` (a `strcpy`/`sprintf` overflow that the original release tolerated under no-opt).
+`-DSILENT` redirects stdout to `/dev/null` at startup. The original source has 200+ leftover debug `cout`/`printf` calls inside the per-DB-entry match loop; on the 710k-entry F70 DB that's ~85 MB of stdout per query (measured), which crippled v1/v2 sweeps via NFS I/O contention before we moved logs to compute-node local `/tmp`. The flag eliminates the write entirely without touching the call sites. Errors still surface via `cerr`. Drop the flag if you want the original verbose debug output for a one-off invocation. Use the Makefile rather than a hand-written command: it builds at `-O2`, which is about 4x faster than `-O0`, and hit sets are byte-identical at every optimisation level.
 
 The source as released does not compile on modern g++ until one duplicate parameter name is fixed: `searchControl.h:30` declared `searchM(...)` with two parameters both named `a`, which older g++ tolerated but g++ ≥ ~6 rejects as a conflicting declaration. The second `a` (the `vector<matrixElment>&` one) has been renamed to `totalele` to match the existing definition at line 1628.
 
@@ -150,9 +149,27 @@ To run the prebuilt `generateMatrix`, either use `generateMatrix/build/generateM
 
 ### searchMatrix
 ```
-searchmatrix <query.txt> <path/to/metamatricesDB> <output_dir>
+searchmatrix <query.query> <metamatricesDB.clean> <output_dir>      # one query
+searchmatrix <manifest>    <metamatricesDB.clean> <output_dir>      # many, one DB pass
 ```
-Writes one file per PDB hit into `output_dir`, each listing the matched SSEs (type, position, residue range, chain, length).
+Writes one file per matching DB record, each listing the matched elements (type, position,
+residue range, chain, length). With a single query the hit files go straight into
+`<output_dir>`. A manifest lists query files, one path per line, and each query's hits go into
+`<output_dir>/<query name>/`; the DB is parsed once for all of them, which is what the SLURM
+sweeps (`scripts/slurm_search/`) run. The output directory is created if missing, and its
+trailing slash is optional. `searchmatrix --help` prints the summary.
+
+Always search the `.clean` DB written by `scripts/db_validate.py --clean`: a few malformed
+`generateMatrix` records can desynchronise the reader.
+
+Exit status: 0 on success; 1 for an unreadable query, manifest entry or DB, an unwritable
+output directory, or a malformed query or DB record (the message is on stderr); 2 for bad
+arguments. Until 2026-09-22 every one of these exited 0: the production build sends stdout to
+`/dev/null` and the errors went to stdout, so a typo in a path produced a clean-looking run with
+no hits. The same silent zero happened when the working directory's parent was not writable
+(the engine appends debug output to `../sheetbug/`, which is now optional). The search itself is
+unchanged: `scripts/db_validation/searchmatrix_args_regression.sh` compares hit trees against
+the previous build byte for byte.
 
 ### generateMatrix
 One PALSSE file per call, no `mpirun`:
