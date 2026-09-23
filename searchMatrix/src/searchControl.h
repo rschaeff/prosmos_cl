@@ -120,13 +120,12 @@ void searchControl::checksheetH(char **intactionM,int row,vector<sheet>&totalshe
    }
    char sheetbugfilename[50];
    strcpy(sheetbugfilename , "../sheetbug/total.txt");
+   // ../sheetbug/total.txt is a debug log relative to the CWD. It used to be
+   // fatal (exit 0, so a silent zero-hit run) when ../ was not writable -- e.g.
+   // searchmatrix run from a home directory, whose parent is /home. Now the
+   // search goes on without the log.
    fvetc = fopen(sheetbugfilename, "a");
-   fileopen = true;
-   if(fvetc == NULL)
-   {
-       cout<<"the file "<<sheetfilename<<" can't open "<<endl;
-       exit(0);
-   }
+   fileopen = (fvetc != NULL);
    for(i=0;i<numbersheet;i++)
    {
        sheetid.clear();
@@ -148,8 +147,8 @@ void searchControl::checksheetH(char **intactionM,int row,vector<sheet>&totalshe
                }
                if(find == false)
                {
-                   cout<<"in the checksheetH funtion, the intEle data or sheetid data is wrong"<<endl;
-                   exit(0);
+                   cerr<<"in the checksheetH funtion, the intEle data or sheetid data is wrong"<<endl;
+                   exit(1);
                }
                judge = false;
                for(z=0;z<sheetid.size();z++)
@@ -171,7 +170,8 @@ void searchControl::checksheetH(char **intactionM,int row,vector<sheet>&totalshe
                */
                if(judge == false)
                {
-                  fprintf(fvetc," the no %s %d strand is not H with any other strand\n\n",pid,sheetid[j]+1);
+                  if(fvetc != NULL)
+                     fprintf(fvetc," the no %s %d strand is not H with any other strand\n\n",pid,sheetid[j]+1);
                }
            }
            /*
@@ -232,18 +232,16 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
   cerr<<"this is step one "<<endl;
   i=0;
   cout<<"the a2 is "<<a2<<endl;
-  while(a2[i] != '\0')
-     i++;
-  j=i;
   cerr<<"this is step two "<<endl;
-  while(a2[j] != '/')
-     j--;
-  int z;
-  j++;
-  for(z=0;z<=i-j;z++)
-    logfilename[z] = a2[z+j];
-  logfilename[z] = '\0';
-  strcat(logfilename,".log");
+  // "<DB basename>.log" in the CWD. The old loop walked back from the end of
+  // a2 to a '/', and ran off the front of the string when there was none.
+  {
+    string db(a2);
+    size_t sl = db.find_last_of('/');
+    string lf = (sl == string::npos ? db : db.substr(sl + 1)) + ".log";
+    if(lf.size() >= sizeof(logfilename)) lf = "searchmatrix.log";
+    strcpy(logfilename, lf.c_str());
+  }
   cerr<<"the logfilename is "<<logfilename<<endl;
   strcpy(logstring,"date > ");
   strcat(logstring,logfilename);
@@ -286,7 +284,7 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
   int minqrow = 1000000000;
   for(size_t qi=0; qi<qpaths.size(); qi++) {
     ifstream qf(qpaths[qi].c_str(), ios::in);
-    if(!qf) { cout<<"can't open query "<<qpaths[qi]<<endl; continue; }
+    if(!qf) { cerr<<"searchmatrix: cannot read query "<<qpaths[qi]<<endl; exit(1); }
     QuerySpec qs;
     qf.getline(quline,1000,'\n');
     checkNumberLine(quline);
@@ -324,8 +322,8 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
    ifstream inputfile1(dirname,ios::in);
    if(!inputfile1)
    {
-       cout<<"the "<<dirname<<" file can't open "<<endl;
-       exit(0);
+       cerr<<"the "<<dirname<<" file can't open "<<endl;
+       exit(1);
    }
    readLincon = 0;
    countpid = 0;
@@ -335,8 +333,8 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
        //cout<<"the check size is "<<check.length()<<endl;
        if(check.length() > 10000000)
        {
-           cout<<"the length is wrong "<<endl;
-           exit(0);
+           cerr<<"the length is wrong "<<endl;
+           exit(1);
        }
        //cout<<"the check is "<<check<<endl;
        if(intMline[0] !='s')
@@ -457,8 +455,8 @@ void searchControl::oneprocess(char *a1 , char *a2 ,char *a3)
   logptr = fopen(logfilename,"a");
   if(logptr == NULL)
   {
-     cout<<"the file "<<logfilename<<" can't open "<<endl;
-     exit(0);
+     cerr<<"the file "<<logfilename<<" can't open "<<endl;
+     exit(1);
   }
   fprintf(logptr,"pdb number counted in program: %d\n", countpid);
   fclose(logptr);
@@ -498,15 +496,15 @@ void searchControl::checkNumberLine(char *qufile)
    int i = 0;
    if(qufile[0]!=' '&&qufile[0]!='1')
    {
-      cout<<"in your qury file, the first line must be number index line"<<endl;
-      cout<<"your number index line is : "<<qufile<<endl;
-      exit(0);
+      cerr<<"in your qury file, the first line must be number index line"<<endl;
+      cerr<<"your number index line is : "<<qufile<<endl;
+      exit(1);
    }
    if(qufile[0]==' ')
    {
-      cout<<"in your qury file, the number index line, the first position can't be a space"<<endl;
-      cout<<"your number index line is : "<<qufile<<endl;
-      exit(0);
+      cerr<<"in your qury file, the number index line, the first position can't be a space"<<endl;
+      cerr<<"your number index line is : "<<qufile<<endl;
+      exit(1);
    }
    while(qufile[i+1]!='\0')
    {
@@ -597,8 +595,8 @@ int searchControl::paraOrantisearch(vector<elecol> &intEle,int source,int destin
     int headindex = 0;
     if(source >=colum.size() || destination >= colum.size())
     {
-        cout<<"the in paraOrantisearch function source or destination or colum size data is wrong"<<endl;
-        exit(0);
+        cerr<<"the in paraOrantisearch function source or destination or colum size data is wrong"<<endl;
+        exit(1);
     }
     /*
     cout<<"the colum is "<<endl;
@@ -671,8 +669,8 @@ int searchControl::paraOrantisearch(vector<elecol> &intEle,int source,int destin
        }
        if(findparent == false)
        {
-          cout<<"in garaph search something is wrong"<<endl;
-          exit(0);
+          cerr<<"in garaph search something is wrong"<<endl;
+          exit(1);
        }
        neighbor = head.getneighbor();
        for(j=0;j<neighbor.size();j++)
@@ -693,8 +691,8 @@ int searchControl::paraOrantisearch(vector<elecol> &intEle,int source,int destin
           }
           if(findnei == false)
           {
-             cout<<"the neighbor data or onelepass data wrong "<<endl;
-             exit(0);
+             cerr<<"the neighbor data or onelepass data wrong "<<endl;
+             exit(1);
           }
        }
        que.pop();
@@ -709,8 +707,8 @@ int searchControl::paraOrantisearch(vector<elecol> &intEle,int source,int destin
     //0 means parallel , 1 means antiparall ,2 means they aren't parallel or antiparallel;
     if(path.size() == 1)
     {
-        cout<<"something is wrong in judge parallel or antiparallel function"<<endl;
-        exit(0);
+        cerr<<"something is wrong in judge parallel or antiparallel function"<<endl;
+        exit(1);
     }
     else
     {
@@ -741,8 +739,8 @@ int searchControl::paraOrantisearch(vector<elecol> &intEle,int source,int destin
           judgep = 1; 
        else
        {
-          cout<<"in paraOr function path1 data is wrong "<<endl;
-          exit(0);
+          cerr<<"in paraOr function path1 data is wrong "<<endl;
+          exit(1);
        }
     }
     if(path1.size()>1)
@@ -765,8 +763,8 @@ int searchControl::paraOrantisearch(vector<elecol> &intEle,int source,int destin
           judgep = 1;
         else
         {
-          cout<<"in paraOr function path1size great than 1 data is wrong "<<endl;
-          exit(0);
+          cerr<<"in paraOr function path1size great than 1 data is wrong "<<endl;
+          exit(1);
         }
     } 
     
@@ -837,8 +835,8 @@ void searchControl::selectMatrix(vector<matrixElment> &a,vector<handness> &hand,
            handchar = hand[i].gethandness();
            if(hand[i].getIdgroup().size()<3)
            {
-              cout<<"the qury file handness qury is wrong "<<endl;
-              exit(0);
+              cerr<<"the qury file handness qury is wrong "<<endl;
+              exit(1);
            }
            char rechar;
            h0 = hand[i].getIdgroup()[0];
@@ -849,8 +847,8 @@ void searchControl::selectMatrix(vector<matrixElment> &a,vector<handness> &hand,
            seg3 =  onematrix[h2-1];
            if(h0>onematrix.size()||h1>onematrix.size()||h2>onematrix.size())
            {
-               cout<<"in qury matrix h0 or h1 or h2 is wrong "<<endl;
-               exit(0);
+               cerr<<"in qury matrix h0 or h1 or h2 is wrong "<<endl;
+               exit(1);
            }
            rechar = chirality(seg1,seg2,seg3);
            cout<<"the rechar is "<<rechar<<endl;
@@ -941,8 +939,8 @@ void searchControl::selectMatrix(vector<matrixElment> &a,vector<handness> &hand,
                 char cname;
                 if(tmpr.getElementSet().size()<2)
                 {
-                    cout<<"qury file chainS line is wrong "<<endl;
-                    exit(0);
+                    cerr<<"qury file chainS line is wrong "<<endl;
+                    exit(1);
                 }
                 elementId = tmpr.getElementSet()[0]-1;
                 cname = onematrix[elementId].getChainName();   
@@ -975,8 +973,8 @@ void searchControl::selectMatrix(vector<matrixElment> &a,vector<handness> &hand,
                 char cname;
                 if(tmpr.getElementSet().size()<2)
                 {
-                    cout<<"qury file chainS line is wrong "<<endl;
-                    exit(0);
+                    cerr<<"qury file chainS line is wrong "<<endl;
+                    exit(1);
                 }
                 elementId = tmpr.getElementSet()[0]-1;
                 cname = onematrix[elementId].getChainName();   
@@ -1015,16 +1013,16 @@ void searchControl::selectMatrix(vector<matrixElment> &a,vector<handness> &hand,
                 
                 for(t=0 ;t<intEle.size();t++)
                    intEle[t].print();
-                cout<<endl;
+                cerr<<endl;
                 for(z=0;z<colum.size();z++)
-                   cout<<colum[z]<<" ";
-                cout<<endl;
-                exit(0);
+                   cerr<<colum[z]<<" ";
+                cerr<<endl;
+                exit(1);
                 
                 if(tmpr.getElementSet().size()!=2)
                 {
-                    cout<<"qury file parallel is only 2 choice "<<endl;
-                    exit(0);
+                    cerr<<"qury file parallel is only 2 choice "<<endl;
+                    exit(1);
                 } 
                 for(u=0;u<tmpr.getElementSet().size() ;u++)
                 {
@@ -1044,8 +1042,8 @@ void searchControl::selectMatrix(vector<matrixElment> &a,vector<handness> &hand,
                     }
                     else
                     {
-                       cout<<"in parallel u value is wrong "<<endl;
-                       exit(0);
+                       cerr<<"in parallel u value is wrong "<<endl;
+                       exit(1);
                     }
                 }
                  judg = paraOrantisearch(intEle,elementId1,elementId2,colum,ssheet,intM);
@@ -1265,8 +1263,8 @@ int searchControl::intMnumofele(vector<matrixElment> &b  , char *oneline,vector<
     //this maybe a potential bug "
     if(cpline.size()<14)
     {
-       cout<<"the yimatrixoutput file is wrong, please check "<<endl;
-       exit(0);
+       cerr<<"the yimatrixoutput file is wrong, please check "<<endl;
+       exit(1);
     }
     // Validate that this looks like a header line. The discriminator is the
     // ".ssd" filename suffix — header lines have it (entry IDs end in .ssd),
@@ -1432,9 +1430,9 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
            {
                if(line[checkspace]!=' '&& line[checkspace+1]!=' ')
                {
-                    cout<<"in your qury matrix each column must be separated by only one space"<<endl;
-                    cout<<"please check your qury matrix"<<endl;
-                    exit(0);
+                    cerr<<"in your qury matrix each column must be separated by only one space"<<endl;
+                    cerr<<"please check your qury matrix"<<endl;
+                    exit(1);
                }
                checkspace++;
            }
@@ -1454,8 +1452,8 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
            num++;
            if(num > row || i>row)
            {
-               cout<<"in searchControl::formqMatrix function num wrong "<<endl;
-               exit(0);
+               cerr<<"in searchControl::formqMatrix function num wrong "<<endl;
+               exit(1);
            }
 
         }
@@ -1477,9 +1475,9 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
             cout<<"g value is "<<g<<endl;
             if(g<5 || g>5)
             {
-                cout<<"g value is "<<g<<endl;
-                cout<<"your handedness qury: "<<wholeLine<<" : is wrong"<<endl;
-                exit(0);
+                cerr<<"g value is "<<g<<endl;
+                cerr<<"your handedness qury: "<<wholeLine<<" : is wrong"<<endl;
+                exit(1);
             }
 
             g=0;
@@ -1493,10 +1491,10 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
                     firstEl = atoi(tokenPtr);
                     if(firstEl > row)
                     {
-                        cout<<"in your handedness qury index of your element is wrong"<<endl;
-                        cout<<"your index of the element is "<<firstEl<<endl;
-                        cout<<"it should be less or eaqual to "<<row<<endl;
-                        exit(0);
+                        cerr<<"in your handedness qury index of your element is wrong"<<endl;
+                        cerr<<"your index of the element is "<<firstEl<<endl;
+                        cerr<<"it should be less or eaqual to "<<row<<endl;
+                        exit(1);
                     }
                     temphand.addElmentId(firstEl);
                 }
@@ -1524,12 +1522,12 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
            cout<<"g value is "<<g<<endl;
             if(g<5 || g>5)
             {
-                cout<<"g value is "<<g<<endl;
-                cout<<"your handedness qury: "<<wholeLine<<" : is wrong"<<endl;
-                cout<<"it should be : length 1 E 2 4"<<endl;
-                cout<<"1 is the index of element, E is the element type ,"<<endl;
-                cout<<"2 4 means the length of this element is between 2 and 4, include 2 and 4"<<endl;
-                exit(0);
+                cerr<<"g value is "<<g<<endl;
+                cerr<<"your handedness qury: "<<wholeLine<<" : is wrong"<<endl;
+                cerr<<"it should be : length 1 E 2 4"<<endl;
+                cerr<<"1 is the index of element, E is the element type ,"<<endl;
+                cerr<<"2 4 means the length of this element is between 2 and 4, include 2 and 4"<<endl;
+                exit(1);
             }
             g=0;
             tokenPtr = strtok(line," ");
@@ -1542,10 +1540,10 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
                     eleid = atoi(tokenPtr);
                     if(eleid > row)
                     {
-                        cout<<"in your length qury index of your element is wrong"<<endl;
-                        cout<<"your index of the element is "<<eleid<<endl;
-                        cout<<"it should be less or eaqual to "<<row<<endl;
-                        exit(0);
+                        cerr<<"in your length qury index of your element is wrong"<<endl;
+                        cerr<<"your index of the element is "<<eleid<<endl;
+                        cerr<<"it should be less or eaqual to "<<row<<endl;
+                        exit(1);
                     }
                     rptr->setEleId(eleid);
                 }
@@ -1583,10 +1581,10 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
                 eleid = atoi(tokenPtr);
                 if(eleid > row)
                 {
-                   cout<<"in your sheetD qury or sheetS qury the index of element is wrong"<<endl;
-                   cout<<"your index of the element is "<<eleid<<endl;
-                   cout<<"it should be less or eaqual to "<<row<<endl;
-                   exit(0);
+                   cerr<<"in your sheetD qury or sheetS qury the index of element is wrong"<<endl;
+                   cerr<<"your index of the element is "<<eleid<<endl;
+                   cerr<<"it should be less or eaqual to "<<row<<endl;
+                   exit(1);
                 }
                 rptr->addElement(eleid);
               }
@@ -1618,10 +1616,10 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
                 eleid = atoi(tokenPtr);
                 if(eleid > row)
                 {      
-                   cout<<"in your chainD qury or chainS qury the index of element is wrong"<<endl;
-                   cout<<"your index of the element is "<<eleid<<endl;
-                   cout<<"it should be less or eaqual to "<<row<<endl;
-                   exit(0);
+                   cerr<<"in your chainD qury or chainS qury the index of element is wrong"<<endl;
+                   cerr<<"your index of the element is "<<eleid<<endl;
+                   cerr<<"it should be less or eaqual to "<<row<<endl;
+                   exit(1);
                 }
                 rptr->addElement(eleid);
               }
@@ -1637,10 +1635,10 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
          tR.push_back(*rptr);
       }
       else{
-          cout<<"the qury: "<<wholeLine<< ": is worng "<<endl;
-          cout<<"we just have : handedness,sheetS,sheeD,length,chainS,chainD,length,parallel,antiparallel : these 7 types"<<endl;
-          cout<<"make sure your spell is right"<<endl;
-          exit(0);
+          cerr<<"the qury: "<<wholeLine<< ": is worng "<<endl;
+          cerr<<"we just have : handedness,sheetS,sheeD,length,chainS,chainD,length,parallel,antiparallel : these 7 types"<<endl;
+          cerr<<"make sure your spell is right"<<endl;
+          exit(1);
       }
     }
  }
@@ -1658,10 +1656,10 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
     {
         if(matrix[i][i]!='*')
         {
-            cout<<"in your qury matrix, the "<<i+1<<" row,"<<i+1<<" colum is wrong "<<endl;
-            cout<<"it should be character * "<<endl;
-            cout<<"please check"<<endl;
-            exit(0);
+            cerr<<"in your qury matrix, the "<<i+1<<" row,"<<i+1<<" colum is wrong "<<endl;
+            cerr<<"it should be character * "<<endl;
+            cerr<<"please check"<<endl;
+            exit(1);
         }
     }
     char z;
@@ -1671,9 +1669,9 @@ void searchControl::formqMatrix(char ** matrix,int row,ifstream &a,vector<handne
            z = matrix[i][j];
            if(z!='X'&& z!='x'&&z!='T'&&z!='C'&&z!='-'&&z!='t'&&z!='t'&&z!='v'&&z!='u'&&z!='N'&&z!='c'&&z!='*'&&z!=' ')
            {
-               cout<<"character "<<z<<" is not in our defined character set"<<endl;
-               cout<<"please check "<<i+1<<" row and "<<j+1<<"colum character"<<endl;
-               exit(0);
+               cerr<<"character "<<z<<" is not in our defined character set"<<endl;
+               cerr<<"please check "<<i+1<<" row and "<<j+1<<"colum character"<<endl;
+               exit(1);
            }
        }
 }
@@ -1691,16 +1689,16 @@ int searchControl::quNumOfele(char *line , vector<elecol> &quelecol)
    char chaiNa = 'A';
    if(line[i] == ' ')
    {
-      cout<<"the first position in the element line must be H,E,X, it can't be space"<<endl;
-      exit(0);
+      cerr<<"the first position in the element line must be H,E,X, it can't be space"<<endl;
+      exit(1);
    }
    while(line[i+1]!='\0')
    {
       if(line[i]!=' '&&line[i+1]!=' ')
       {
-         cout<<"each element type must be separated by one space"<<endl;
-         cout<<"please check your qury matrix secondary element line,make sure each element is separated by space"<<endl;
-         exit(0);
+         cerr<<"each element type must be separated by one space"<<endl;
+         cerr<<"please check your qury matrix secondary element line,make sure each element is separated by space"<<endl;
+         exit(1);
       }
       i++;
    }
@@ -1709,10 +1707,10 @@ int searchControl::quNumOfele(char *line , vector<elecol> &quelecol)
    {
       if(line[i] !='H'&&line[i] !='E'&&line[i] !='X'&&line[i] !=' '&&line[i] != 'L')
       {
-         cout<<line[i]<<" is not in element types range "<<endl;
-         cout<<"we just have four secondary element types: H,E,X,L"<<endl;
-         cout<<"please check your qury matrix secondary element line,make sure you wrote the right character"<<endl;
-         exit(0);
+         cerr<<line[i]<<" is not in element types range "<<endl;
+         cerr<<"we just have four secondary element types: H,E,X,L"<<endl;
+         cerr<<"please check your qury matrix secondary element line,make sure you wrote the right character"<<endl;
+         exit(1);
       }
       if(line[i] != ' ')
       {
@@ -1905,8 +1903,8 @@ void searchControl::printOuptfile(vector<fpass> &totalpass,vector<matrixElment> 
       fileptr = fopen(path1,"w");
       if(fileptr == NULL)
       {
-         cout<<"the "<<pid1<<" can't open"<<endl;
-         exit(0);
+         cerr<<"the "<<pid1<<" can't open"<<endl;
+         exit(1);
       }
       fprintf(fileptr,"%s\n",pid2);
       fprintf(fileptr,"sub-matrix:\n");
@@ -1967,15 +1965,15 @@ bool searchControl::compareCol(vector<int> allRow,char **intM,int row1,char **qu
    */
    if(nocol> row2)
    {
-     cout<<"the qury matrix nocol parameter wrong "<<endl;
-     exit(0);
+     cerr<<"the qury matrix nocol parameter wrong "<<endl;
+     exit(1);
    }
    /*
    if(onecolum.size() != nocol)
    {
-     cout<<"onecolum size is "<<onecolum.size()<<endl;
-     cout<<"this size maybe wrong "<<endl;
-     exit(0);
+     cerr<<"onecolum size is "<<onecolum.size()<<endl;
+     cerr<<"this size maybe wrong "<<endl;
+     exit(1);
    }
    */
    for(i=0;i<nocol;i++)

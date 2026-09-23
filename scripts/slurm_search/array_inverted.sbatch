@@ -32,9 +32,10 @@ if [ -z "$CHUNK" ] || [ ! -f "$CHUNK" ]; then
 fi
 NAME=$(basename "$CHUNK")
 
-# Validate the manifest BEFORE searching. searchmatrix treats an unreadable query
-# path as "no query" and exits 0, so a malformed manifest yields a full sweep that
-# reports zero hits and looks like a scientific result. (This happened: a manifest
+# Validate the manifest BEFORE searching. Until 2026-09-22 searchmatrix treated an
+# unreadable query path as "no query" and exited 0, so a malformed manifest yielded
+# a full sweep that reported zero hits and looked like a scientific result. It now
+# exits 1 itself; this check stays because it fails before the chunk is read. (This happened: a manifest
 # built with `ls` -- aliased to long format -- put "-rw-r--r-- 1 rschaeff lab ..."
 # on every line, so all 11 templates silently vanished and 800 chunks searched an
 # empty query set.) Fail loudly on a bad path instead.
