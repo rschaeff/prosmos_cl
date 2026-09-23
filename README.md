@@ -155,59 +155,136 @@ searchmatrix <query.txt> <path/to/metamatricesDB> <output_dir>
 Writes one file per PDB hit into `output_dir`, each listing the matched SSEs (type, position, residue range, chain, length).
 
 ### generateMatrix
-Use the single-structure mode, once per PALSSE file, with no `mpirun`:
+One PALSSE file per call, no `mpirun`:
 ```
+generateMatrix <file.ssd> <output_file>                  # -os is the default
+generateMatrix -os <name.ssd> <palsse_dir> <output_file>  # original form, still accepted
+
 for f in <palsse_dir>/*.ssd; do
-  b=$(basename "$f")
-  generateMatrix -os "$b" <palsse_dir>/ <out_dir>/"${b%.ssd}".out
+  b=$(basename "$f" .ssd)
+  generateMatrix "$f" <out_dir>/"$b".out
 done
 cat <out_dir>/*.out > metamatricesDB
 ```
-`-os` takes the `.ssd` **basename** and the directory (with trailing slash) as
-separate arguments. It runs as an OpenMPI singleton, so it needs no `mpirun`. This is
-what `scripts/*_db_build/process_chunk.sh` runs; parallelise with `xargs -P` or a
-SLURM array, not MPI.
+`-os` (the default) takes sheets from the PALSSE file's SHEET records, which is how the
+census DBs were built; `-o` recomputes them (legacy). The record is named after the
+`.ssd` file's basename. The trailing slash on `<palsse_dir>` is optional. Run
+`generateMatrix --help` for the summary.
 
-**Do not use the batch modes `-ds <palsse_dir/>` or `-fs <listfile>`.** They fail
-silently:
-- run directly, rank 0 is manager-only and waits forever for workers that do not exist
-  (hangs, no output);
-- under conda's `mpirun` (MPICH, first on PATH if conda is active) every rank believes
-  it is a singleton rank 0, so they all hang the same way;
-- under `/usr/bin/mpirun -np N` they exit 0 and write `<output_file>1..N-1`, but every
-  record has **zero elements**: the worker path never calls `prepareIndex()`, which
-  `-os` does before reading. Checked 2026-09-22 on 23 AFDB domains; `-os` on the same
-  files gives the full matrices.
+It runs as an OpenMPI singleton, so it needs no `mpirun`. Parallelise with `xargs -P` or a
+SLURM array, as `scripts/*_db_build/process_chunk.sh` does.
+
+Errors exit nonzero with a message on stderr: an unreadable input (checked before the
+output is created, so no empty file is left behind), an unwritable output, or bad
+arguments (2). A structure with no helix or strand elements still writes its (empty)
+record, with a warning.
+
+**The batch modes `-ds <palsse_dir/>` and `-fs <listfile>` are disabled** (exit 2). They
+never worked in this build: run directly they hang (rank 0 is manager-only and waits for
+workers that do not exist), and under `/usr/bin/mpirun -np N` they exit 0 but write every
+record with **zero elements**, because the worker path never calls `prepareIndex()`.
+
+Until 2026-09-22 the front end failed silently: a directory without the trailing slash was
+concatenated straight onto the file name, and a missing input exited 0 after creating an
+empty output. The records themselves are unchanged. `scripts/db_validation/genmat_args_regression.sh`
+checks the new front end against the v1.0.0 binary byte for byte, in every accepted spelling.
 
 Generation depends on **PALSSE** SSE definitions as input — see the companion working copy at `~/dev/palsse_cl/` (or upstream: http://prodata.swmed.edu/palsse/).
 
 ## Query format
 
-Plain text. First line: SSE indices. Second: SSE types (`H` helix, `E` strand, `X` any). Then the upper-triangular interaction matrix, one row per SSE. Followed by optional constraint lines.
+Plain text. First line: element numbers. Second: element types (`E` strand, `H` helix,
+`X` any). Then the upper triangle of the query matrix, one row per element, `*` on the
+diagonal. Then optional constraint lines. The smallest useful query, two strands paired
+antiparallel in one sheet:
+```
+1 2
+E E
+* t
+  *
+sheetS 1 2
+length 1 E 5 1000
+length 2 E 5 1000
+```
+For a parallel pair change `t` to `c`. No single code means "paired, either direction",
+so the two orientations are two queries.
 
-Matrix symbols (query side):
-| sym | meaning |
+### Matrix codes
+
+`generateMatrix` writes six codes into the database. A query may use those six, which
+match only themselves, or four wildcards (`searchControl.h`, `notequal()`):
+
+| query code | matches DB code | meaning |
+|---|---|---|
+| `t` | `t` | strands paired antiparallel (see below) |
+| `c` | `c` | strands paired parallel |
+| `u` | `u` | in contact, axes at < 85° (pointing the same way) |
+| `v` | `v` | in contact, axes at ≥ 95° (pointing opposite ways) |
+| `N` | `N` | in contact, 85°–95° (roughly perpendicular) |
+| `-` | `-` | no contact (but see below for strands in one sheet) |
+| `T` | `v` or `t` | in contact, opposite-pointing, paired or not |
+| `C` | `u` or `c` | in contact, same-pointing, paired or not |
+| `x` | anything but `-` | in contact, angle not checked |
+| `X` | anything | not checked |
+
+"In contact" means the element axes overlap by more than 2.5 Å and lie within 11 Å
+(`OVERLAP_DEFAULT`, `DISTANCE_DEFAULT` in `generateMatrix/src/external.h`).
+
+Which codes actually occur depends on the element types. Counted over every element pair
+in a 5,000-domain AFDB sample:
+
+| pair | codes seen (most to least common) |
 |---|---|
-| `*` | diagonal |
-| `-` | no interaction |
-| `X` | don't care |
-| `x` | interaction present, angle unchecked |
-| `C` | contact, angle < 85° |
-| `T` | contact, angle ≥ 95° |
-| `N` | contact, 85° ≤ angle < 95° |
-| `c` | parallel β-strand pair with H-bonds |
-| `t` | antiparallel β-strand pair with H-bonds |
-| `u` | contact (no H-bonds), angle < 85° |
-| `v` | contact (no H-bonds), angle ≥ 95° |
+| E–E | `-` `t` `v` `u` `c` `N` |
+| H–E | `-` `v` `u` `N`; `t`/`c` in 230 of ~42,000 pairs |
+| H–H | `-` `v` `u` `N`; `t` in 6 of ~46,800 pairs |
 
-Constraint lines:
-- `handedness <i> <j> <k> R|L` — chirality of an SSE triple
-- `length <i> <type> <min> [<max>]` — element-length bounds
-- `sheet S|D <i> <j> ...` — same-sheet (S) or not-all-same-sheet (D)
-- `chain S|D <i> <j> ...` — same/different chain
-- `parallel <i> <j>` / `antiparallel <i> <j>` — orientation of non-H-bonded strands in the same sheet
+So on a helix–strand pair `T` behaves as `v` and `C` as `u`.
 
-Example — β-grasp ([`example/query.txt`](./example/query.txt)):
+### What `t` and `c` mean: PALSSE pairing, not hydrogen bonds
+
+The upstream readme describes `t`/`c` as "more than 2 H-bonds". Nothing in the pipeline
+counts hydrogen bonds:
+
+1. **PALSSE pairs residues from Cα positions only.** It scores quadruplets (two residues on
+   each of two strands) against empirical tables of Cα–Cα distances, virtual-bond geometry
+   and torsions, chains the accepted ones into ladders, and writes every paired residue as a
+   `PAIRS` record in the `.ssd`. Its `bond_score` is the virtual Cα–Cα bond. No N–H···O
+   geometry or energy is used.
+2. **`generateMatrix` counts those pairs** (`h_bond_E()` in `control.h`, despite the name).
+   For elements A and B it counts A's PALSSE partners that fall inside B. **Two or more**
+   makes the pair `t` or `c`: `t` if the first and last partners run backwards along B,
+   otherwise `c`.
+
+Consequences:
+
+- A tie (every counted partner is the same residue of B) is coded `c`, parallel.
+- Two strands that are in contact and in the same PALSSE sheet but not directly paired get
+  `-`, not an angle code. Between strands of one sheet, `-` means "not ladder neighbours".
+- The pairing count also runs for elements that are *not* in contact, and for any element
+  types. That is where the rare helix `t`/`c` codes come from.
+- A `t`/`c` pair is not always in one PALSSE sheet: in the AFDB sample 237 of 7,731 `t` and
+  685 of 2,573 `c` pairs are not. Add `sheetS` when you mean one sheet.
+
+If a result depends on real hydrogen bonds, check it against DSSP, which assigns bridges
+from backbone H-bond energies. The four-strand census does this: every `t`/`c` pair in a
+hit must carry a DSSP bridge.
+
+### Constraint lines
+
+- `length <i> <type> <min> [<max>]`: element-length bounds, inclusive. Give a generous
+  maximum (`1000`); a low one silently drops long elements.
+- `sheetS <i> <j> ...`: all in one PALSSE sheet. `sheetD <i> <j> ...`: not all in one sheet.
+- `chainS` / `chainD`: same or different chain, likewise.
+- `parallel <i> <j>` / `antiparallel <i> <j>`: orientation of strands in one sheet that are
+  not paired with each other.
+- `handedness <i> <j> <k> R|L`: chirality of a three-element unit. It is not reliable
+  enough to support a claim of left-handedness.
+
+`sheetS`, `sheetD`, `chainS` and `chainD` are single words. The upstream readme writes
+`sheet S`, which the parser does not accept.
+
+Example: β-grasp ([`example/query.txt`](./example/query.txt)):
 ```
 1 2 3 4 5
 E E H E E
@@ -219,6 +296,16 @@ E E H E E
 handedness 2 3 4 R
 length 3 H 8 1000
 ```
+
+### Reading database records
+
+`scripts/metamatrix_record.py` parses a `generateMatrix` output file or a whole
+metamatricesDB into elements, sheets and the full N×N matrix:
+```
+scripts/metamatrix_record.py metamatricesDB.clean <name>       # print records
+python3 -c "from metamatrix_record import iter_records"         # or import it
+```
+The record header is fixed width. Slice it; never split it on whitespace or regex it.
 
 ## Post-processing (`scripts/`)
 
