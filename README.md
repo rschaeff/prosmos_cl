@@ -90,6 +90,7 @@ searchMatrix/           online: motif search against metamatricesDB
   Linux/searchmatrix    32-bit i386 binary (2010)  -- loads but crashes (bad_alloc) on the real DB
   build/searchmatrix    64-bit binary rebuilt from src (g++ 11)
 scripts/
+  acceptance/           post-search acceptance rule for the four-strand census
   fetchmatrix/          perl helpers for inspecting individual matrices
   generateinsightIIlog/ build InsightII visualization log from hits
   generatemolscript/    build MolScript input from PDB hits
@@ -326,6 +327,7 @@ The record header is fixed width. Slice it; never split it on whitespace or rege
 
 ## Post-processing (`scripts/`)
 
+- **`acceptance/`** — the four-strand census's acceptance rule, run on `searchmatrix` hits: disjointness, axial overlap, local pairing and DSSP bridges, as sequential stages that record why each candidate was rejected or could not be judged. See `scripts/acceptance/README.md`.
 - **`fetchmatrix/`** — perl helpers to extract and pretty-print a single PDB's matrix from a hit list, useful when designing queries.
 - **`generateinsightIIlog/`** — InsightII visualization log generator.
 - **`generatemolscript/`** — MolScript input generator for hit structures.
