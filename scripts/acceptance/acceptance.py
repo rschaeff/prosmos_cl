@@ -66,7 +66,7 @@ OV_MIN = 3.0          # axial overlap floor, A
 PAIR_D = 6.0          # local pairing distance, A
 PAIR_RUN = 2          # consecutive qualifying residues
 BRIDGE_MIN = 1        # DSSP bridges per required pair
-CONVENTIONS = (("complete", 4), ("core", 6), ("raw", None))
+CONVENTION_NAMES = ("complete", "core", "raw")   # sheet-size tiers, ceilings per query
 VACUOUS = 999.0
 
 COLS = ["query", "record", "sheet_size", "positions", "ranges", "status", "detail",
@@ -381,7 +381,7 @@ def cmd_hits(a):
             continue
         sz = smallest_sheet(r, pos)
         if sz is None:
-            row.update(status="fail:no_sheet", detail="no PALSSE sheet holds all four elements")
+            row.update(status="fail:no_sheet", detail="no PALSSE sheet holds every element")
             continue
         row["sheet_size"] = sz
     write_table(rows, a.out)
@@ -696,6 +696,20 @@ def cmd_bridge(a):
 
 # ----------------------------------------------------------------------------- stage: census
 
+def conventions(n, complete=None, core=None):
+    """Sheet-size ceiling per tier for an n-element query.
+
+    A motif is `complete` when its host sheet is exactly the motif (<= n strands), `core`
+    when the sheet carries at most two extra strands (<= n + 2), and `raw` at any size.
+    At n = 4 this is the published 4 / 6 / any; the caps are derived from the query rather
+    than fixed so that a five-strand motif is not scored against a four-strand ceiling,
+    where `complete` would be 0 by construction.
+    """
+    return (("complete", n if complete is None else complete),
+            ("core", n + 2 if core is None else core),
+            ("raw", None))
+
+
 def cmd_census(a):
     queries = load_queries(a.queries)
     rows = read_table(a.inp)
@@ -713,12 +727,17 @@ def cmd_census(a):
     per = []
     for q in sorted(queries):
         d = best.get(q, {})
-        e = {name: sum(1 for s in d.values() if cap is None or s <= cap) for name, cap in CONVENTIONS}
-        per.append({"query": q, **e})
-    realized = {name: sum(1 for p in per if p[name] > 0) for name, _ in CONVENTIONS}
+        n = len(queries[q].types)
+        conv = conventions(n, a.complete, a.core)
+        e = {name: sum(1 for s in d.values() if cap is None or s <= cap) for name, cap in conv}
+        per.append({"query": q, "n": n, **e})
+    realized = {name: sum(1 for p in per if p[name] > 0) for name in CONVENTION_NAMES}
     status = Counter(r["status"] for r in rows)
     fails = {k: v for k, v in status.items() if k.startswith("fail:")}
+    ns = sorted({p["n"] for p in per})
     out = {"queries": len(queries), "realized": realized,
+           "conventions": {str(n): {name: cap for name, cap in conventions(n, a.complete, a.core)}
+                           for n in ns},
            "status": dict(sorted(status.items())), "per_query": per}
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     json.dump(out, open(a.out, "w"), indent=1)
@@ -776,6 +795,11 @@ def main(argv=None):
 
     p = sp.add_parser("census", help="count accepted occurrences")
     common(p)
+    p.add_argument("--complete", type=int, default=None,
+                   help="sheet-size ceiling for the 'complete' tier "
+                        "(default: the query's own element count)")
+    p.add_argument("--core", type=int, default=None,
+                   help="ceiling for the 'core' tier (default: element count + 2)")
     p.set_defaults(fn=cmd_census)
 
     a = ap.parse_args(argv)
